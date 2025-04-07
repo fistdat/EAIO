@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy AI Optimizer - Deployment Guide</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f9fc;
+        }
+        header {
+            background-color: #0066cc;
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        h1, h2, h3 {
+            color: #0066cc;
+        }
+        header h1 {
+            color: white;
+            margin: 0;
+        }
+        .breadcrumb {
+            margin-bottom: 20px;
+        }
+        .breadcrumb a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        .card {
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            padding: 20px;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+        }
+        code {
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+            background-color: #f5f5f5;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .info {
+            background-color: #e6f7ff;
+            border-left: 4px solid #1890ff;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+        }
+        .step {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .step h3 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="breadcrumb">
+        <a href="index.html">Home</a> &gt; Deployment Guide
+    </div>
+
+    <header>
+        <h1>Energy AI Optimizer - Deployment Guide</h1>
+    </header>
+
+    <div class="card">
+        <h2>Introduction</h2>
+        <p>This guide provides step-by-step instructions for deploying the Energy AI Optimizer system in various environments. The system uses Docker containers for easy deployment and management.</p>
+        
+        <div class="info">
+            <strong>Note:</strong> This guide assumes you have basic familiarity with Docker, command-line operations, and system administration concepts.
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>System Requirements</h2>
+        
+        <h3>Minimum Hardware Requirements</h3>
+        <ul>
+            <li><strong>CPU:</strong> 4 cores (8 recommended for production)</li>
+            <li><strong>RAM:</strong> 16GB (32GB recommended for production)</li>
+            <li><strong>Storage:</strong> 100GB SSD (500GB recommended for production)</li>
+            <li><strong>Network:</strong> 100Mbps (1Gbps recommended for production)</li>
+        </ul>
+        
+        <h3>Software Prerequisites</h3>
+        <ul>
+            <li><strong>Operating System:</strong> Linux (Ubuntu 20.04 or later recommended), macOS, or Windows with WSL2</li>
+            <li><strong>Docker:</strong> Docker Engine 20.10.x or later</li>
+            <li><strong>Docker Compose:</strong> Version 2.0.0 or later</li>
+            <li><strong>Git:</strong> For source code management</li>
+            <li><strong>OpenAI API Key:</strong> For GPT-4o Mini integration</li>
+        </ul>
+        
+        <div class="warning">
+            <strong>Important:</strong> For production deployments, we strongly recommend using Linux as the host operating system for optimal performance and stability.
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Deployment Options</h2>
+        <p>The Energy AI Optimizer system can be deployed in several configurations:</p>
+        
+        <h3>1. Development Environment</h3>
+        <p>Suitable for development and testing with minimal resources and debugging options enabled.</p>
+        
+        <h3>2. Production Environment</h3>
+        <p>Optimized for performance, stability, and security in a production setting.</p>
+        
+        <h3>3. Hybrid Deployment</h3>
+        <p>A combination where certain components (like the database) might be managed services while others are self-hosted.</p>
+    </div>
+
+    <div class="card">
+        <h2>Deployment Steps</h2>
+        
+        <div class="step">
+            <h3>Step 1: Clone the Repository</h3>
+            <p>Start by cloning the Energy AI Optimizer repository:</p>
+            <pre>git clone https://github.com/yourusername/energy-ai-optimizer.git
+cd energy-ai-optimizer</pre>
+        </div>
+        
+        <div class="step">
+            <h3>Step 2: Configure Environment Variables</h3>
+            <p>Create a <code>.env</code> file in the root directory with the following variables:</p>
+            <pre># OpenAI API Configuration
+OPENAI_API_KEY=your_openai_api_key
+
+# MongoDB Configuration
+MONGO_INITDB_ROOT_USERNAME=admin
+MONGO_INITDB_ROOT_PASSWORD=secure_password
+MONGO_INITDB_DATABASE=energy-ai-optimizer
+
+# Redis Configuration
+REDIS_PASSWORD=secure_redis_password
+
+# Milvus Configuration
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+
+# Application Configuration
+NODE_ENV=production
+BACKEND_URL=http://backend:8000
+FRONTEND_PORT=80
+DEBUG=false
+LOG_LEVEL=info</pre>
+            <p>Customize the values according to your requirements, especially ensuring that passwords are secure for production environments.</p>
+        </div>
+        
+        <div class="step">
+            <h3>Step 3: Build and Start the Services</h3>
+            <p>For development environment:</p>
+            <pre>docker compose -f docker-compose.dev.yml up -d</pre>
+            
+            <p>For production environment:</p>
+            <pre>docker compose -f docker-compose.prod.yml up -d</pre>
+            
+            <p>This will build and start all the required services according to the specified configuration.</p>
+        </div>
+        
+        <div class="step">
+            <h3>Step 4: Verify Deployment</h3>
+            <p>Check that all containers are running properly:</p>
+            <pre>docker ps</pre>
+            
+            <p>You should see containers for:</p>
+            <ul>
+                <li>MongoDB (<code>eaio-mongo-prod</code>)</li>
+                <li>Redis (<code>eaio-redis-prod</code>)</li>
+                <li>Backend Python service (<code>eaio-backend-prod</code>)</li>
+                <li>Frontend Node.js service (<code>eaio-frontend-prod</code>)</li>
+                <li>Milvus vector database (<code>eaio-milvus-prod</code>)</li>
+                <li>MinIO object storage (<code>eaio-minio-prod</code>)</li>
+                <li>Etcd service (<code>eaio-etcd-prod</code>)</li>
+            </ul>
+            
+            <p>Verify that the application is accessible by opening a web browser and navigating to:</p>
+            <pre>http://localhost:80</pre>
+            
+            <p>For the backend API, you can verify it's running by checking:</p>
+            <pre>http://localhost:8000/api/health</pre>
+        </div>
+        
+        <div class="step">
+            <h3>Step 5: Initial Data Setup</h3>
+            <p>Run the initial data import script to populate the system with building data:</p>
+            <pre>docker exec -it eaio-backend-prod python -m scripts.import_data</pre>
+            
+            <p>This will import sample building data, user accounts, and initial configuration settings.</p>
+        </div>
+        
+        <div class="step">
+            <h3>Step 6: Create Admin User</h3>
+            <p>Create an administrative user for the system:</p>
+            <pre>docker exec -it eaio-backend-prod python -m scripts.create_admin_user \
+  --username admin@example.com \
+  --password secure_admin_password \
+  --name "Admin User"</pre>
+            
+            <p>Replace the example values with secure credentials.</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Advanced Configuration</h2>
+        
+        <h3>Scaling Services</h3>
+        <p>For high-traffic environments, you can scale certain services by adjusting the <code>docker-compose.prod.yml</code> file:</p>
+        <pre>services:
+  backend:
+    deploy:
+      replicas: 4  # Increase the number of backend instances
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G</pre>
+        
+        <h3>SSL/TLS Configuration</h3>
+        <p>For production deployments, configure SSL/TLS by adding Nginx as a reverse proxy:</p>
+        <pre>services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+      - backend</pre>
+        
+        <p>And create an appropriate <code>nginx.conf</code> file with SSL configuration.</p>
+        
+        <h3>Custom Database Configuration</h3>
+        <p>If you're using external databases, update the environment variables in your <code>.env</code> file:</p>
+        <pre># External MongoDB
+MONGO_URI=mongodb://username:password@your-mongodb-host:27017/database
+
+# External Redis
+REDIS_HOST=your-redis-host
+REDIS_PORT=6379
+REDIS_PASSWORD=your-redis-password</pre>
+    </div>
+
+    <div class="card">
+        <h2>Troubleshooting</h2>
+        
+        <h3>Common Issues</h3>
+        <ul>
+            <li>
+                <strong>Containers not starting:</strong>
+                <p>Check container logs for error messages:</p>
+                <pre>docker logs eaio-backend-prod</pre>
+            </li>
+            <li>
+                <strong>Database connection issues:</strong>
+                <p>Verify that database credentials are correct in <code>.env</code> file and that database containers are running.</p>
+            </li>
+            <li>
+                <strong>Memory limitations:</strong>
+                <p>If containers are stopping unexpectedly, check system memory usage and increase limits if needed:</p>
+                <pre>docker update --memory 4G --memory-swap 8G eaio-backend-prod</pre>
+            </li>
+            <li>
+                <strong>Permission issues with mounted volumes:</strong>
+                <p>Ensure the host directories have appropriate permissions:</p>
+                <pre>chmod -R 755 ./data</pre>
+            </li>
+        </ul>
+        
+        <h3>Viewing Logs</h3>
+        <p>To view logs for debugging:</p>
+        <pre># Backend logs
+docker logs -f eaio-backend-prod
+
+# Frontend logs
+docker logs -f eaio-frontend-prod
+
+# Database logs
+docker logs -f eaio-mongo-prod</pre>
+    </div>
+
+    <div class="card">
+        <h2>Maintenance</h2>
+        
+        <h3>Backups</h3>
+        <p>Set up regular backups of your MongoDB data and configurations:</p>
+        <pre># Create a backup script
+cat > backup.sh << 'EOF'
+#!/bin/bash
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR="./backups"
+mkdir -p $BACKUP_DIR
+
+# Backup MongoDB
+docker exec eaio-mongo-prod mongodump --out=/tmp/backup
+docker cp eaio-mongo-prod:/tmp/backup $BACKUP_DIR/mongo_$TIMESTAMP
+
+# Backup configuration
+cp .env $BACKUP_DIR/env_$TIMESTAMP
+cp docker-compose.prod.yml $BACKUP_DIR/compose_$TIMESTAMP
+
+# Compress backup
+tar -czf $BACKUP_DIR/backup_$TIMESTAMP.tar.gz $BACKUP_DIR/mongo_$TIMESTAMP $BACKUP_DIR/env_$TIMESTAMP $BACKUP_DIR/compose_$TIMESTAMP
+
+# Clean up temporary files
+rm -rf $BACKUP_DIR/mongo_$TIMESTAMP $BACKUP_DIR/env_$TIMESTAMP $BACKUP_DIR/compose_$TIMESTAMP
+EOF
+
+chmod +x backup.sh</pre>
+        
+        <h3>Updates</h3>
+        <p>To update the system to the latest version:</p>
+        <pre># Pull latest changes
+git pull origin main
+
+# Rebuild and restart containers
+docker compose -f docker-compose.prod.yml down
+docker compose -f docker-compose.prod.yml up -d --build</pre>
+        
+        <h3>Monitoring</h3>
+        <p>For production deployments, consider setting up monitoring with Prometheus and Grafana:</p>
+        <pre># Add to docker-compose.prod.yml
+services:
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus:/etc/prometheus
+    ports:
+      - "9090:9090"
+      
+  grafana:
+    image: grafana/grafana
+    depends_on:
+      - prometheus
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana</pre>
+    </div>
+
+    <div class="card">
+        <h2>Security Considerations</h2>
+        <ul>
+            <li><strong>API Keys:</strong> Rotate API keys regularly and never commit them to version control.</li>
+            <li><strong>Network Security:</strong> Use internal networks for container communication and only expose necessary ports.</li>
+            <li><strong>Regular Updates:</strong> Keep all components updated with security patches.</li>
+            <li><strong>Access Control:</strong> Implement least privilege access to all components.</li>
+            <li><strong>Audit Logging:</strong> Enable detailed audit logs for all system access and changes.</li>
+        </ul>
+        
+        <div class="warning">
+            <strong>Security Notice:</strong> For production deployments, ensure you've conducted a security review and implemented appropriate security controls before exposing the system to users or the internet.
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Support Resources</h2>
+        <p>If you encounter issues during deployment or operation:</p>
+        <ul>
+            <li><strong>Documentation:</strong> <a href="https://docs.energyaioptimizer.com">https://docs.energyaioptimizer.com</a></li>
+            <li><strong>GitHub Issues:</strong> <a href="https://github.com/yourusername/energy-ai-optimizer/issues">https://github.com/yourusername/energy-ai-optimizer/issues</a></li>
+            <li><strong>Email Support:</strong> <a href="mailto:support@energyaioptimizer.com">support@energyaioptimizer.com</a></li>
+        </ul>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Energy AI Optimizer - <a href="index.html">Return to Home</a></p>
+    </footer>
+</body>
+</html> 

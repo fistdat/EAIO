@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy AI Optimizer - User Guide</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f9fc;
+        }
+        header {
+            background-color: #0066cc;
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        h1, h2, h3 {
+            color: #0066cc;
+        }
+        header h1 {
+            color: white;
+            margin: 0;
+        }
+        .breadcrumb {
+            margin-bottom: 20px;
+        }
+        .breadcrumb a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        .card {
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            padding: 20px;
+        }
+        .role-section {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+        .role-card {
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            padding: 20px;
+            border-left: 5px solid #0066cc;
+        }
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .note {
+            background-color: #e6f7ff;
+            border-left: 4px solid #1890ff;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="breadcrumb">
+        <a href="index.html">Home</a> &gt; User Guide
+    </div>
+
+    <header>
+        <h1>Energy AI Optimizer - User Guide</h1>
+    </header>
+
+    <div class="card">
+        <h2>Introduction</h2>
+        <p>Welcome to the Energy AI Optimizer system user guide. This guide provides comprehensive information on how to use the platform based on your role within the organization. The system is designed to help you monitor, analyze, and optimize energy consumption in your buildings through an intelligent multi-agent AI system.</p>
+        
+        <p>The Energy AI Optimizer serves three primary user roles, each with specific features and interfaces tailored to their needs:</p>
+        <ul>
+            <li><strong>Facility Managers</strong> - Day-to-day operational management and immediate actions</li>
+            <li><strong>Energy Analysts</strong> - Detailed technical analysis and optimization strategies</li>
+            <li><strong>Executives</strong> - Strategic overview and financial/sustainability metrics</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>System Overview</h2>
+        <p>The Energy AI Optimizer utilizes a multi-agent AI architecture to provide:</p>
+        <ul>
+            <li>Real-time energy consumption monitoring and anomaly detection</li>
+            <li>Weather-normalized energy usage analysis</li>
+            <li>AI-powered recommendations for energy savings</li>
+            <li>Forecasting of future energy consumption patterns</li>
+            <li>Role-based dashboards and reports</li>
+            <li>Natural language interface for energy-related queries</li>
+        </ul>
+        
+        <div class="note">
+            <strong>Note:</strong> The system processes data from the Building Data Genome 2 (BDG2) dataset by default, but can be configured to work with your building's specific energy management system.
+        </div>
+    </div>
+
+    <div class="role-section">
+        <h2>Role-Specific Guides</h2>
+        
+        <div class="role-card">
+            <h3>For Facility Managers</h3>
+            <p>As a facility manager, you'll primarily use the system for day-to-day operational oversight and quick response to energy-related issues.</p>
+            
+            <h4>Key Features</h4>
+            <ul>
+                <li><strong>Operational Dashboard</strong> - Real-time view of building systems with alert indicators</li>
+                <li><strong>Anomaly Alerts</strong> - Immediate notification of unusual energy consumption patterns</li>
+                <li><strong>Quick Actions</strong> - Recommended immediate steps to address issues</li>
+                <li><strong>System Health</strong> - Status overview of HVAC, lighting, and other building systems</li>
+                <li><strong>Daily Reports</strong> - Summary of the previous day's performance and issues</li>
+            </ul>
+            
+            <h4>Common Tasks</h4>
+            <table>
+                <tr>
+                    <th>Task</th>
+                    <th>Navigation</th>
+                </tr>
+                <tr>
+                    <td>Check current building status</td>
+                    <td>Dashboard → Overview</td>
+                </tr>
+                <tr>
+                    <td>Review today's alerts</td>
+                    <td>Dashboard → Alerts</td>
+                </tr>
+                <tr>
+                    <td>View recommended actions</td>
+                    <td>Dashboard → Recommendations</td>
+                </tr>
+                <tr>
+                    <td>Schedule system adjustments</td>
+                    <td>Operations → Schedule</td>
+                </tr>
+                <tr>
+                    <td>Generate daily report</td>
+                    <td>Reports → Daily Summary</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="role-card">
+            <h3>For Energy Analysts</h3>
+            <p>Energy analysts will use the platform for detailed technical analysis and developing optimization strategies.</p>
+            
+            <h4>Key Features</h4>
+            <ul>
+                <li><strong>Advanced Analytics</strong> - In-depth analysis tools with customizable parameters</li>
+                <li><strong>Energy Modeling</strong> - Create and test energy consumption models</li>
+                <li><strong>Benchmarking</strong> - Compare performance against similar buildings and standards</li>
+                <li><strong>Technical Recommendations</strong> - Detailed technical optimization suggestions</li>
+                <li><strong>Custom Reports</strong> - Generate specialized reports with specific metrics</li>
+            </ul>
+            
+            <h4>Common Tasks</h4>
+            <table>
+                <tr>
+                    <th>Task</th>
+                    <th>Navigation</th>
+                </tr>
+                <tr>
+                    <td>Perform trend analysis</td>
+                    <td>Analytics → Trends</td>
+                </tr>
+                <tr>
+                    <td>Create energy model</td>
+                    <td>Analytics → Modeling → New Model</td>
+                </tr>
+                <tr>
+                    <td>View weather correlation</td>
+                    <td>Analytics → Weather Impact</td>
+                </tr>
+                <tr>
+                    <td>Run efficiency simulations</td>
+                    <td>Optimization → Simulate</td>
+                </tr>
+                <tr>
+                    <td>Generate technical reports</td>
+                    <td>Reports → Technical Analysis</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="role-card">
+            <h3>For Executives</h3>
+            <p>Executives will focus on high-level overview, financial metrics, and strategic decision-making information.</p>
+            
+            <h4>Key Features</h4>
+            <ul>
+                <li><strong>Executive Dashboard</strong> - High-level KPIs and financial metrics</li>
+                <li><strong>Cost Analysis</strong> - Energy cost trends and savings opportunities</li>
+                <li><strong>Sustainability Metrics</strong> - Carbon footprint and environmental impact</li>
+                <li><strong>Strategic Recommendations</strong> - Long-term improvement opportunities with ROI</li>
+                <li><strong>Portfolio View</strong> - Multi-building comparison and portfolio performance</li>
+            </ul>
+            
+            <h4>Common Tasks</h4>
+            <table>
+                <tr>
+                    <th>Task</th>
+                    <th>Navigation</th>
+                </tr>
+                <tr>
+                    <td>View financial overview</td>
+                    <td>Executive → Financial Summary</td>
+                </tr>
+                <tr>
+                    <td>Check sustainability goals</td>
+                    <td>Executive → Sustainability</td>
+                </tr>
+                <tr>
+                    <td>Review strategic recommendations</td>
+                    <td>Executive → Strategic Opportunities</td>
+                </tr>
+                <tr>
+                    <td>Compare buildings in portfolio</td>
+                    <td>Executive → Portfolio View</td>
+                </tr>
+                <tr>
+                    <td>Generate executive report</td>
+                    <td>Reports → Executive Summary</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Using the Natural Language Interface</h2>
+        <p>All users can access the natural language interface to query the system using plain English questions. This feature allows you to quickly get information without navigating through menus.</p>
+        
+        <h4>Example Queries</h4>
+        <ul>
+            <li>"Show me yesterday's energy consumption compared to last week"</li>
+            <li>"Which building system is using the most energy right now?"</li>
+            <li>"What are the top 3 recommendations to reduce energy costs this month?"</li>
+            <li>"How has the recent weather affected our energy usage?"</li>
+            <li>"Generate a report on HVAC efficiency for the past 30 days"</li>
+        </ul>
+        
+        <p>To use this feature, click on the chat icon in the top right corner of any page and type your question.</p>
+    </div>
+
+    <div class="card">
+        <h2>Getting Support</h2>
+        <p>If you encounter any issues or have questions about using the Energy AI Optimizer system, please contact:</p>
+        <ul>
+            <li><strong>Technical Support:</strong> support@energyaioptimizer.com</li>
+            <li><strong>Documentation:</strong> docs@energyaioptimizer.com</li>
+            <li><strong>Training Requests:</strong> training@energyaioptimizer.com</li>
+        </ul>
+        <p>Support hours: Monday-Friday, 9am-5pm EST</p>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Energy AI Optimizer - <a href="index.html">Return to Home</a></p>
+    </footer>
+</body>
+</html> 

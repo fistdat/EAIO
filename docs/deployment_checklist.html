@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy AI Optimizer - Deployment Checklist</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f9fc;
+        }
+        header {
+            background-color: #0066cc;
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        h1, h2, h3 {
+            color: #0066cc;
+        }
+        header h1 {
+            color: white;
+            margin: 0;
+        }
+        .breadcrumb {
+            margin-bottom: 20px;
+        }
+        .breadcrumb a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        .card {
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            padding: 20px;
+        }
+        .checklist {
+            list-style-type: none;
+            padding: 0;
+        }
+        .checklist li {
+            margin-bottom: 10px;
+            padding-left: 35px;
+            position: relative;
+        }
+        .checklist li::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 2px;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #0066cc;
+            border-radius: 3px;
+        }
+        .critical::after {
+            content: 'Critical';
+            background-color: #ff4d4f;
+            color: white;
+            font-size: 0.8em;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 10px;
+        }
+        .high::after {
+            content: 'High';
+            background-color: #fa8c16;
+            color: white;
+            font-size: 0.8em;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 10px;
+        }
+        .medium::after {
+            content: 'Medium';
+            background-color: #faad14;
+            color: white;
+            font-size: 0.8em;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 10px;
+        }
+        .section-heading {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        .note {
+            background-color: #e6f7ff;
+            border-left: 4px solid #1890ff;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+        }
+        .print-button {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-top: 20px;
+        }
+        .print-button:hover {
+            background-color: #0055aa;
+        }
+        @media print {
+            body {
+                background-color: white;
+                padding: 0;
+            }
+            .card {
+                box-shadow: none;
+                border: 1px solid #ddd;
+            }
+            .print-button {
+                display: none;
+            }
+            a {
+                color: #0066cc !important;
+                text-decoration: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="breadcrumb">
+        <a href="index.html">Home</a> &gt; Deployment Checklist
+    </div>
+
+    <header>
+        <h1>Energy AI Optimizer - Deployment Checklist</h1>
+    </header>
+
+    <div class="card">
+        <h2>Introduction</h2>
+        <p>This checklist is designed to help you ensure a successful deployment of the Energy AI Optimizer system. Each item includes its priority level to help you focus on the most important aspects first.</p>
+        
+        <div class="note">
+            <strong>Note:</strong> Use this checklist in conjunction with the <a href="deployment.html">Deployment Guide</a> for detailed instructions on each step.
+        </div>
+        
+        <button class="print-button" onclick="window.print()">Print Checklist</button>
+    </div>
+
+    <div class="card">
+        <h2 class="section-heading">Pre-Deployment Tasks</h2>
+        
+        <h3>System Requirements</h3>
+        <ul class="checklist">
+            <li class="critical">Verify hardware meets minimum requirements (CPU, RAM, Storage)</li>
+            <li class="high">Install Docker Engine 20.10+ and Docker Compose 2.0+</li>
+            <li class="medium">Check network connectivity and firewall rules</li>
+            <li class="high">Ensure sufficient disk space for database storage and backups</li>
+            <li class="medium">Verify operating system compatibility</li>
+        </ul>
+        
+        <h3>Security Preparation</h3>
+        <ul class="checklist">
+            <li class="critical">Obtain secure API keys for OpenAI integration</li>
+            <li class="high">Generate strong passwords for database and service accounts</li>
+            <li class="high">Review network security plan and isolation strategy</li>
+            <li class="medium">Prepare SSL/TLS certificates if deploying with HTTPS</li>
+            <li class="medium">Establish backup and recovery procedures</li>
+        </ul>
+        
+        <h3>Configuration Planning</h3>
+        <ul class="checklist">
+            <li class="high">Determine deployment environment (development, production, hybrid)</li>
+            <li class="medium">Plan resource allocation for each component</li>
+            <li class="medium">Identify user roles and access requirements</li>
+            <li class="high">Select data storage strategy (local vs. managed services)</li>
+            <li class="medium">Establish monitoring and logging approach</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2 class="section-heading">Deployment Tasks</h2>
+        
+        <h3>Source Code and Environment</h3>
+        <ul class="checklist">
+            <li class="high">Clone the Energy AI Optimizer repository</li>
+            <li class="critical">Create and configure the .env file with all required variables</li>
+            <li class="medium">Review and customize docker-compose configuration if needed</li>
+            <li class="high">Set appropriate file permissions for data directories</li>
+        </ul>
+        
+        <h3>Service Deployment</h3>
+        <ul class="checklist">
+            <li class="critical">Start MongoDB service and verify it's running</li>
+            <li class="high">Start Redis service and verify it's running</li>
+            <li class="high">Deploy Milvus vector database service</li>
+            <li class="high">Deploy backend Python service</li>
+            <li class="high">Deploy frontend Node.js service</li>
+            <li class="medium">Configure and start Nginx for reverse proxy (if applicable)</li>
+        </ul>
+        
+        <h3>Initial Configuration</h3>
+        <ul class="checklist">
+            <li class="critical">Run initial data import script</li>
+            <li class="critical">Create administrative user account</li>
+            <li class="high">Verify API connectivity between services</li>
+            <li class="high">Configure initial building metadata and energy sources</li>
+            <li class="medium">Set up default dashboards for different user roles</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2 class="section-heading">Post-Deployment Verification</h2>
+        
+        <h3>Service Health Checks</h3>
+        <ul class="checklist">
+            <li class="critical">Verify all Docker containers are running without errors</li>
+            <li class="high">Check database connectivity and data persistence</li>
+            <li class="high">Verify backend API endpoints are responding correctly</li>
+            <li class="high">Confirm frontend application loads properly</li>
+            <li class="medium">Test WebSocket connections for real-time updates</li>
+        </ul>
+        
+        <h3>Functional Testing</h3>
+        <ul class="checklist">
+            <li class="critical">Verify user authentication and authorization works</li>
+            <li class="high">Test building data visualization functionality</li>
+            <li class="high">Confirm energy consumption analytics are processing correctly</li>
+            <li class="high">Verify AI recommendations generation is working</li>
+            <li class="medium">Test energy forecasting functionality</li>
+            <li class="medium">Verify weather data integration (if applicable)</li>
+        </ul>
+        
+        <h3>Performance and Reliability</h3>
+        <ul class="checklist">
+            <li class="high">Monitor system resource usage (CPU, RAM, disk I/O)</li>
+            <li class="high">Check application response times under normal load</li>
+            <li class="medium">Verify database query performance</li>
+            <li class="medium">Test backup and restore procedures</li>
+            <li class="high">Configure automated health checks and alerts</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2 class="section-heading">Production Readiness</h2>
+        
+        <h3>Scaling and Resilience</h3>
+        <ul class="checklist">
+            <li class="high">Implement container restart policies</li>
+            <li class="medium">Configure load balancing for multi-instance services</li>
+            <li class="high">Set up database replication for high availability</li>
+            <li class="medium">Implement rate limiting for API endpoints</li>
+            <li class="medium">Configure service discovery for microservices communication</li>
+        </ul>
+        
+        <h3>Monitoring and Maintenance</h3>
+        <ul class="checklist">
+            <li class="high">Set up Prometheus for metrics collection</li>
+            <li class="high">Configure Grafana dashboards for system monitoring</li>
+            <li class="medium">Implement centralized logging with ELK or similar</li>
+            <li class="high">Configure automated alerting for critical issues</li>
+            <li class="medium">Establish regular maintenance schedule</li>
+            <li class="high">Implement automated backup procedures</li>
+        </ul>
+        
+        <h3>Security Hardening</h3>
+        <ul class="checklist">
+            <li class="critical">Verify all sensitive data is encrypted</li>
+            <li class="high">Enable audit logging for all user actions</li>
+            <li class="high">Remove default credentials and unused accounts</li>
+            <li class="high">Restrict container capabilities to minimum required</li>
+            <li class="medium">Scan containers for vulnerabilities</li>
+            <li class="high">Implement proper secrets management</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2 class="section-heading">Documentation and Training</h2>
+        
+        <h3>System Documentation</h3>
+        <ul class="checklist">
+            <li class="high">Document deployment architecture and configurations</li>
+            <li class="high">Create troubleshooting guide for common issues</li>
+            <li class="medium">Document backup and recovery procedures</li>
+            <li class="medium">Create API documentation for integration purposes</li>
+            <li class="medium">Document monitoring and alerting setup</li>
+        </ul>
+        
+        <h3>User Documentation</h3>
+        <ul class="checklist">
+            <li class="high">Create user manuals for each user role</li>
+            <li class="medium">Prepare training materials for end users</li>
+            <li class="medium">Document custom dashboards and reports</li>
+            <li class="low">Create FAQ document for common user questions</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2 class="section-heading">Go-Live Plan</h2>
+        
+        <h3>Final Verification</h3>
+        <ul class="checklist">
+            <li class="critical">Run full system health check</li>
+            <li class="high">Verify all integrations are working correctly</li>
+            <li class="high">Conduct final security review</li>
+            <li class="high">Test backup and restore one more time</li>
+            <li class="medium">Verify all documentation is up to date</li>
+        </ul>
+        
+        <h3>Deployment Signoff</h3>
+        <ul class="checklist">
+            <li class="high">Obtain signoff from IT security team</li>
+            <li class="high">Obtain signoff from system administrators</li>
+            <li class="high">Obtain signoff from key stakeholders</li>
+            <li class="medium">Schedule go-live date and user notifications</li>
+            <li class="high">Prepare rollback plan in case of issues</li>
+        </ul>
+        
+        <h3>Post-Deployment Support</h3>
+        <ul class="checklist">
+            <li class="high">Establish support channels and contacts</li>
+            <li class="medium">Create incident response procedure</li>
+            <li class="medium">Schedule post-deployment review meeting</li>
+            <li class="medium">Plan for version upgrades and patches</li>
+            <li class="high">Set up usage monitoring and feedback collection</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <div class="note">
+            <strong>Reminder:</strong> This checklist is meant to be a guide and may need to be adapted to your specific deployment environment and requirements. Always refer to the latest <a href="deployment.html">Deployment Guide</a> for detailed implementation instructions.
+        </div>
+        
+        <button class="print-button" onclick="window.print()">Print Checklist</button>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Energy AI Optimizer - <a href="index.html">Return to Home</a></p>
+    </footer>
+</body>
+</html> 

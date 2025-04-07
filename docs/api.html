@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Energy AI Optimizer - API Documentation</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f9fc;
+        }
+        header {
+            background-color: #0066cc;
+            color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        h1, h2, h3 {
+            color: #0066cc;
+        }
+        header h1 {
+            color: white;
+            margin: 0;
+        }
+        .breadcrumb {
+            margin-bottom: 20px;
+        }
+        .breadcrumb a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        .card {
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            padding: 20px;
+        }
+        code {
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+            background-color: #f5f5f5;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .endpoint {
+            border-left: 5px solid #0066cc;
+            margin-bottom: 30px;
+            padding-left: 15px;
+        }
+        .method {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            color: white;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .get {
+            background-color: #61affe;
+        }
+        .post {
+            background-color: #49cc90;
+        }
+        .put {
+            background-color: #fca130;
+        }
+        .delete {
+            background-color: #f93e3e;
+        }
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="breadcrumb">
+        <a href="index.html">Home</a> &gt; API Documentation
+    </div>
+
+    <header>
+        <h1>Energy AI Optimizer - API Documentation</h1>
+    </header>
+
+    <div class="card">
+        <h2>Introduction</h2>
+        <p>The Energy AI Optimizer provides a comprehensive RESTful API that allows you to integrate with the platform, access building energy data, and leverage the AI capabilities programmatically.</p>
+        <p>This documentation covers the main endpoints, authentication, request/response formats, and provides examples for common use cases.</p>
+        
+        <h3>Base URL</h3>
+        <pre><code>https://api.energyaioptimizer.com/v1</code></pre>
+        
+        <h3>Authentication</h3>
+        <p>All API requests require authentication using a JWT token. To obtain a token, use the authentication endpoint with your API credentials.</p>
+        <p>Include the token in the Authorization header of all requests:</p>
+        <pre><code>Authorization: Bearer YOUR_JWT_TOKEN</code></pre>
+    </div>
+
+    <div class="card">
+        <h2>Authentication Endpoints</h2>
+        
+        <div class="endpoint">
+            <h3><span class="method post">POST</span> /auth/token</h3>
+            <p>Generates a JWT token for API authentication.</p>
+            
+            <h4>Request Body</h4>
+            <pre><code>{
+  "client_id": "your_client_id",
+  "client_secret": "your_client_secret"
+}</code></pre>
+            
+            <h4>Response</h4>
+            <pre><code>{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "expires_in": 3600
+}</code></pre>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Building Data Endpoints</h2>
+        
+        <div class="endpoint">
+            <h3><span class="method get">GET</span> /buildings</h3>
+            <p>Retrieves a list of buildings in the system.</p>
+            
+            <h4>Query Parameters</h4>
+            <table>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>page</td>
+                    <td>integer</td>
+                    <td>Page number for pagination (default: 1)</td>
+                </tr>
+                <tr>
+                    <td>limit</td>
+                    <td>integer</td>
+                    <td>Number of results per page (default: 20, max: 100)</td>
+                </tr>
+                <tr>
+                    <td>type</td>
+                    <td>string</td>
+                    <td>Filter by building type (e.g., office, residential, educational)</td>
+                </tr>
+            </table>
+            
+            <h4>Response</h4>
+            <pre><code>{
+  "buildings": [
+    {
+      "id": "bldg-001",
+      "name": "Corporate Headquarters",
+      "address": "123 Main Street, Anytown, USA",
+      "type": "office",
+      "area": 25000,
+      "floors": 12,
+      "year_built": 2005
+    },
+    {
+      "id": "bldg-002",
+      "name": "Research Campus Building A",
+      "address": "456 Innovation Way, Tech City, USA",
+      "type": "laboratory",
+      "area": 18500,
+      "floors": 3,
+      "year_built": 2015
+    }
+  ],
+  "pagination": {
+    "total": 42,
+    "page": 1,
+    "limit": 20
+  }
+}</code></pre>
+        </div>
+        
+        <div class="endpoint">
+            <h3><span class="method get">GET</span> /buildings/{building_id}</h3>
+            <p>Retrieves detailed information about a specific building.</p>
+            
+            <h4>Path Parameters</h4>
+            <table>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>building_id</td>
+                    <td>string</td>
+                    <td>Unique identifier for the building</td>
+                </tr>
+            </table>
+            
+            <h4>Response</h4>
+            <pre><code>{
+  "id": "bldg-001",
+  "name": "Corporate Headquarters",
+  "address": "123 Main Street, Anytown, USA",
+  "type": "office",
+  "area": 25000,
+  "floors": 12,
+  "year_built": 2005,
+  "systems": {
+    "hvac": {
+      "type": "centralized",
+      "cooling_capacity": "500 tons",
+      "heating_capacity": "2500 MBH"
+    },
+    "lighting": {
+      "type": "LED",
+      "controls": "daylight sensing, occupancy"
+    },
+    "renewable": {
+      "solar_capacity": "100 kW",
+      "installed_date": "2018-06-15"
+    }
+  },
+  "metadata": {
+    "occupancy_hours": "Mon-Fri 7am-7pm",
+    "average_occupancy": 750,
+    "timezone": "America/New_York"
+  }
+}</code></pre>
+        </div>
+        
+        <div class="endpoint">
+            <h3><span class="method get">GET</span> /buildings/{building_id}/consumption</h3>
+            <p>Retrieves energy consumption data for a specific building.</p>
+            
+            <h4>Path Parameters</h4>
+            <table>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>building_id</td>
+                    <td>string</td>
+                    <td>Unique identifier for the building</td>
+                </tr>
+            </table>
+            
+            <h4>Query Parameters</h4>
+            <table>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>start_date</td>
+                    <td>string (ISO 8601)</td>
+                    <td>Start date for consumption data (required)</td>
+                </tr>
+                <tr>
+                    <td>end_date</td>
+                    <td>string (ISO 8601)</td>
+                    <td>End date for consumption data (required)</td>
+                </tr>
+                <tr>
+                    <td>interval</td>
+                    <td>string</td>
+                    <td>Data aggregation interval (hourly, daily, monthly; default: hourly)</td>
+                </tr>
+                <tr>
+                    <td>type</td>
+                    <td>string</td>
+                    <td>Energy type (electricity, gas, water; default: all)</td>
+                </tr>
+            </table>
+            
+            <h4>Response</h4>
+            <pre><code>{
+  "building_id": "bldg-001",
+  "start_date": "2023-01-01T00:00:00Z",
+  "end_date": "2023-01-07T23:59:59Z",
+  "interval": "daily",
+  "consumption": [
+    {
+      "timestamp": "2023-01-01T00:00:00Z",
+      "electricity": {
+        "value": 2450.5,
+        "unit": "kWh"
+      },
+      "gas": {
+        "value": 125.3,
+        "unit": "therms"
+      },
+      "water": {
+        "value": 3500,
+        "unit": "gallons"
+      }
+    },
+    {
+      "timestamp": "2023-01-02T00:00:00Z",
+      "electricity": {
+        "value": 2780.2,
+        "unit": "kWh"
+      },
+      "gas": {
+        "value": 145.7,
+        "unit": "therms"
+      },
+      "water": {
+        "value": 3850,
+        "unit": "gallons"
+      }
+    }
+    // Additional days...
+  ]
+}</code></pre>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>AI Recommendation Endpoints</h2>
+        
+        <div class="endpoint">
+            <h3><span class="method get">GET</span> /buildings/{building_id}/recommendations</h3>
+            <p>Retrieves AI-generated recommendations for energy optimization.</p>
+            
+            <h4>Path Parameters</h4>
+            <table>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>building_id</td>
+                    <td>string</td>
+                    <td>Unique identifier for the building</td>
+                </tr>
+            </table>
+            
+            <h4>Query Parameters</h4>
+            <table>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>category</td>
+                    <td>string</td>
+                    <td>Recommendation category (operational, strategic, maintenance; default: all)</td>
+                </tr>
+                <tr>
+                    <td>limit</td>
+                    <td>integer</td>
+                    <td>Number of recommendations to return (default: 10)</td>
+                </tr>
+                <tr>
+                    <td>user_role</td>
+                    <td>string</td>
+                    <td>Target user role (facility_manager, energy_analyst, executive; default: all)</td>
+                </tr>
+            </table>
+            
+            <h4>Response</h4>
+            <pre><code>{
+  "building_id": "bldg-001",
+  "recommendations": [
+    {
+      "id": "rec-123",
+      "category": "operational",
+      "priority": "high",
+      "title": "Adjust HVAC Setpoints",
+      "description": "Adjust temperature setpoints by 2°F during non-peak hours to reduce energy consumption",
+      "estimated_savings": {
+        "value": 5.2,
+        "unit": "percent",
+        "annual_amount": "$12,500"
+      },
+      "implementation_cost": "low",
+      "target_role": "facility_manager",
+      "created_at": "2023-05-15T14:22:10Z"
+    },
+    {
+      "id": "rec-124",
+      "category": "strategic",
+      "priority": "medium",
+      "title": "Install Daylight Harvesting Controls",
+      "description": "Implement photoelectric controls to adjust lighting based on available daylight",
+      "estimated_savings": {
+        "value": 8.5,
+        "unit": "percent",
+        "annual_amount": "$21,000"
+      },
+      "implementation_cost": "medium",
+      "target_role": "energy_analyst",
+      "created_at": "2023-05-15T14:22:10Z"
+    }
+    // Additional recommendations...
+  ]
+}</code></pre>
+        </div>
+        
+        <div class="endpoint">
+            <h3><span class="method post">POST</span> /buildings/{building_id}/recommendations/implement</h3>
+            <p>Marks a recommendation as implemented and records implementation details.</p>
+            
+            <h4>Path Parameters</h4>
+            <table>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>building_id</td>
+                    <td>string</td>
+                    <td>Unique identifier for the building</td>
+                </tr>
+            </table>
+            
+            <h4>Request Body</h4>
+            <pre><code>{
+  "recommendation_id": "rec-123",
+  "implementation_date": "2023-06-01T00:00:00Z",
+  "implemented_by": "john.doe@example.com",
+  "notes": "Adjusted setpoints according to recommendation. Will monitor for two weeks."
+}</code></pre>
+            
+            <h4>Response</h4>
+            <pre><code>{
+  "success": true,
+  "recommendation_id": "rec-123",
+  "status": "implemented",
+  "implementation_details": {
+    "date": "2023-06-01T00:00:00Z",
+    "by": "john.doe@example.com",
+    "notes": "Adjusted setpoints according to recommendation. Will monitor for two weeks."
+  }
+}</code></pre>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Forecasting Endpoints</h2>
+        
+        <div class="endpoint">
+            <h3><span class="method get">GET</span> /buildings/{building_id}/forecast</h3>
+            <p>Retrieves energy consumption forecast for a building.</p>
+            
+            <h4>Path Parameters</h4>
+            <table>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>building_id</td>
+                    <td>string</td>
+                    <td>Unique identifier for the building</td>
+                </tr>
+            </table>
+            
+            <h4>Query Parameters</h4>
+            <table>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>start_date</td>
+                    <td>string (ISO 8601)</td>
+                    <td>Start date for forecast period (required)</td>
+                </tr>
+                <tr>
+                    <td>end_date</td>
+                    <td>string (ISO 8601)</td>
+                    <td>End date for forecast period (required)</td>
+                </tr>
+                <tr>
+                    <td>interval</td>
+                    <td>string</td>
+                    <td>Forecast interval (hourly, daily, monthly; default: daily)</td>
+                </tr>
+                <tr>
+                    <td>type</td>
+                    <td>string</td>
+                    <td>Energy type (electricity, gas, water; default: all)</td>
+                </tr>
+                <tr>
+                    <td>include_weather</td>
+                    <td>boolean</td>
+                    <td>Include weather forecast data (default: false)</td>
+                </tr>
+            </table>
+            
+            <h4>Response</h4>
+            <pre><code>{
+  "building_id": "bldg-001",
+  "forecast_period": {
+    "start_date": "2023-07-01T00:00:00Z",
+    "end_date": "2023-07-07T23:59:59Z"
+  },
+  "interval": "daily",
+  "forecast": [
+    {
+      "date": "2023-07-01T00:00:00Z",
+      "electricity": {
+        "predicted": 2580.4,
+        "unit": "kWh",
+        "confidence_interval": {
+          "lower": 2450.2,
+          "upper": 2710.6
+        }
+      },
+      "gas": {
+        "predicted": 115.2,
+        "unit": "therms",
+        "confidence_interval": {
+          "lower": 105.8,
+          "upper": 125.6
+        }
+      },
+      "weather": {
+        "temperature": {
+          "avg": 75.2,
+          "unit": "F"
+        },
+        "humidity": {
+          "avg": 65.5,
+          "unit": "%"
+        }
+      }
+    }
+    // Additional days...
+  ],
+  "model_metadata": {
+    "model_type": "ensemble",
+    "features_used": ["historical_consumption", "weather", "occupancy", "day_type"],
+    "training_period": "2022-07-01 to 2023-06-30",
+    "accuracy_metrics": {
+      "mape": 4.2,
+      "rmse": 98.5
+    }
+  }
+}</code></pre>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Error Handling</h2>
+        <p>The API uses standard HTTP status codes and returns detailed error messages when something goes wrong.</p>
+        
+        <h3>Error Response Format</h3>
+        <pre><code>{
+  "error": {
+    "code": "invalid_credentials",
+    "message": "The provided API credentials are invalid",
+    "status": 401,
+    "details": {
+      "reason": "Client ID not found in the system"
+    }
+  }
+}</code></pre>
+        
+        <h3>Common Error Codes</h3>
+        <table>
+            <tr>
+                <th>Status</th>
+                <th>Code</th>
+                <th>Description</th>
+            </tr>
+            <tr>
+                <td>400</td>
+                <td>invalid_request</td>
+                <td>The request is malformed or missing required parameters</td>
+            </tr>
+            <tr>
+                <td>401</td>
+                <td>invalid_credentials</td>
+                <td>Authentication failed due to invalid credentials</td>
+            </tr>
+            <tr>
+                <td>403</td>
+                <td>forbidden</td>
+                <td>The authenticated user doesn't have permission for the requested operation</td>
+            </tr>
+            <tr>
+                <td>404</td>
+                <td>not_found</td>
+                <td>The requested resource doesn't exist</td>
+            </tr>
+            <tr>
+                <td>429</td>
+                <td>rate_limit_exceeded</td>
+                <td>Too many requests in a given amount of time</td>
+            </tr>
+            <tr>
+                <td>500</td>
+                <td>server_error</td>
+                <td>An unexpected error occurred on the server</td>
+            </tr>
+        </table>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Energy AI Optimizer - <a href="index.html">Return to Home</a></p>
+    </footer>
+</body>
+</html> 
