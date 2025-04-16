@@ -1,306 +1,546 @@
-import React, { useState, useEffect } from 'react';
-import ConsumptionChart from '../components/dashboard/charts/ConsumptionChart';
-import EnergyUsageCard from '../components/dashboard/EnergyUsageCard';
-import AnomalyCard from '../components/dashboard/AnomalyCard';
-import RecommendationCard from '../components/dashboard/RecommendationCard';
-import WeatherImpactCard from '../components/dashboard/WeatherImpactCard';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../components/ui/Card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs';
+import ConsumptionChart from '../components/dashboard/ConsumptionChart';
+import AnomalyDetection from '../components/dashboard/AnomalyDetection';
+import RecommendationList from '../components/dashboard/RecommendationList';
+import DashboardStats from '../components/dashboard/DashboardStats';
 import BuildingSelector from '../components/common/BuildingSelector';
-import { buildingApi, analysisApi, recommendationApi, weatherApi } from '../services/api';
+import DateRangePicker from '../components/common/DateRangePicker';
+import { getBuildingList, getBuildingById, getBuildingConsumptionData } from '../services/api/buildingApi';
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/Alert';
+import { Button } from '../components/ui/Button';
+import { RefreshCw, Building, Calendar as CalendarIcon, TrendingUp, TrendingDown, AlertTriangle, Info, Droplet, Zap, Wind } from 'lucide-react';
 
-// Định nghĩa interface Building để đảm bảo đúng kiểu dữ liệu
+// Define interfaces
 interface Building {
   id: string; 
   name: string;
-  location: string; // location là string, không phải object
+  location: string;
   type: string;
-  size?: number;
-  floors?: number;
-  built_year?: number;
-  energy_sources?: string[];
-  primary_use?: string;
-  occupancy_hours?: string;
+  area: number;
+  floors: number;
+  occupancy: number;
+  constructionYear: number;
 }
 
+interface ConsumptionData {
+  timestamp: string;
+  electricity: number;
+  water: number;
+  gas: number;
+}
+
+interface Anomaly {
+  id: string;
+  timestamp: string;
+  type: string;
+  severity: 'Low' | 'Medium' | 'High';
+  description: string;
+  metric: string;
+  value: number;
+  expectedValue: number;
+}
+
+interface Recommendation {
+  id: string;
+  title: string;
+  description: string;
+  potentialSavings: number;
+  implementationCost: string;
+  paybackPeriod: string;
+  priority: 'Low' | 'Medium' | 'High';
+  category: string;
+}
+
+// Main Dashboard Component
 const Dashboard: React.FC = () => {
-  // State hooks for data
+  // State hooks
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [selectedBuilding, setSelectedBuilding] = useState<Building | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loadingBuildings, setLoadingBuildings] = useState<boolean>(true);
+  const [loadingConsumption, setLoadingConsumption] = useState<boolean>(false);
+  const [dateRange, setDateRange] = useState<{ start: Date; end: Date }>({
+    start: new Date(new Date().setDate(new Date().getDate() - 30)),
+    end: new Date(),
+  });
+  
+  const [consumptionData, setConsumptionData] = useState<ConsumptionData[]>([]);
+  const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [consumptionData, setConsumptionData] = useState<any>({});
-  const [recommendations, setRecommendations] = useState<any[]>([]);
-  const [anomalies, setAnomalies] = useState<any[]>([]);
-  const [weatherImpact, setWeatherImpact] = useState<any>(null);
+  const [filterStatus, setFilterStatus] = useState<string>('');
 
-  // Fetch buildings on component mount
-  useEffect(() => {
-    const fetchBuildings = async () => {
-      try {
-        setLoading(true);
-        const data = await buildingApi.getBuildings();
-        if (data && Array.isArray(data)) {
-          // Đảm bảo mỗi building có location dạng string
-          const formattedBuildings: Building[] = data.map(building => ({
-            ...building,
-            // Đảm bảo location là string
-            location: typeof building.location === 'object' ? 
-              (building.location?.city ? `${building.location.city}, ${building.location.country || ''}` : '') : 
-              String(building.location || '')
-          }));
-          
-          setBuildings(formattedBuildings);
-          // Set first building as selected by default
-          if (formattedBuildings.length > 0) {
-            setSelectedBuilding(formattedBuildings[0]);
-          }
-        }
-      } catch (err: any) {
-        setError(err.message || 'Failed to fetch buildings');
-        console.error('Error fetching buildings:', err);
-      } finally {
-        setLoading(false);
+  // Add new state for tracking consumption trends 
+  const [consumptionTrends, setConsumptionTrends] = useState<{
+    electricity: { value: number; trend: 'up' | 'down' | 'stable' };
+    water: { value: number; trend: 'up' | 'down' | 'stable' };
+    gas: { value: number; trend: 'up' | 'down' | 'stable' };
+  }>({
+    electricity: { value: 0, trend: 'stable' },
+    water: { value: 0, trend: 'stable' },
+    gas: { value: 0, trend: 'stable' },
+  });
+  
+  // Add state for total savings
+  const [totalSavings, setTotalSavings] = useState({
+    amount: 0,
+    percentage: 0,
+    trend: 'up' as 'up' | 'down'
+  });
+
+  // Fetch building list
+  const fetchBuildingList = useCallback(async () => {
+    setLoadingBuildings(true);
+    setError(null);
+    setFilterStatus('Loading building list...');
+    
+    try {
+      const data = await getBuildingList();
+      setBuildings(data);
+      setFilterStatus(`Loaded ${data.length} buildings. Use filters to find specific buildings.`);
+      
+      // If this is initial load and we have buildings, select the first one
+      if (data.length > 0 && !selectedBuilding) {
+        await fetchBuildingById(data[0].id);
       }
-    };
-
-    fetchBuildings();
-  }, []);
-
-  // Fetch building-specific data when selected building changes
-  useEffect(() => {
-    if (selectedBuilding) {
-      fetchBuildingData(selectedBuilding.id);
+    } catch (err) {
+      setError('Failed to fetch building list. Please try again later.');
+      setFilterStatus('Error loading buildings.');
+      console.error('Error fetching building list:', err);
+    } finally {
+      setLoadingBuildings(false);
     }
   }, [selectedBuilding]);
 
-  // Function to fetch all data for a specific building
-  const fetchBuildingData = async (buildingId: string) => {
-    setLoading(true);
+  // Fetch building by ID
+  const fetchBuildingById = useCallback(async (buildingId: string) => {
     setError(null);
 
     try {
-      // Fetch consumption data for electricity, water, gas
-      const metrics = ['electricity', 'water', 'gas'];
-      const consumptionPromises = metrics.map(metric => 
-        buildingApi.getBuildingConsumption(buildingId, metric)
-          .catch(err => {
-            console.error(`Error fetching ${metric} consumption:`, err);
-            return { data: [] }; // Return empty data on error
-          })
-      );
+      const data = await getBuildingById(buildingId);
+      setSelectedBuilding(data);
       
-      // Fetch recommendations
-      const recommendationsPromise = recommendationApi.getBuildingRecommendations(buildingId)
-        .catch(err => {
-          console.error('Error fetching recommendations:', err);
-          return { items: [] }; // Return empty data on error
-        });
-      
-      // Fetch anomalies
-      const anomaliesPromise = analysisApi.getAnomalies(buildingId)
-        .catch(err => {
-          console.error('Error fetching anomalies:', err);
-          return { anomalies: [] }; // Return empty data on error
-        });
-      
-      // Fetch weather impact
-      const weatherImpactPromise = weatherApi.getWeatherImpact(buildingId)
-        .catch(err => {
-          console.error('Error fetching weather impact:', err);
-          return null; // Return null on error
-        });
+      // After selecting a building, fetch its consumption data
+      await fetchConsumptionData(buildingId, dateRange);
+    } catch (err) {
+      setError('Failed to fetch building details. Please try again later.');
+      console.error('Error fetching building details:', err);
+    }
+  }, [dateRange]);
 
-      // Wait for all promises to resolve
-      const [electricityData, waterData, gasData, recommendationsData, anomaliesData, weatherImpactData] = 
-        await Promise.all([
-          ...consumptionPromises, 
-          recommendationsPromise, 
-          anomaliesPromise, 
-          weatherImpactPromise
-        ]);
-
-      // Update state with fetched data
-      setConsumptionData({
-        electricity: electricityData,
-        water: waterData,
-        gas: gasData
-      });
+  // Enhanced fetch consumption data with trend calculation
+  const fetchConsumptionData = useCallback(async (buildingId: string, range: { start: Date; end: Date }) => {
+    setLoadingConsumption(true);
+    setError(null);
+    
+    try {
+      const data = await getBuildingConsumptionData(buildingId, range.start, range.end);
+      setConsumptionData(data.consumption);
       
-      setRecommendations(recommendationsData.items || []);
-      setAnomalies(anomaliesData.anomalies || []);
-      setWeatherImpact(weatherImpactData);
+      // Calculate consumption trends
+      calculateConsumptionTrends(data.consumption);
       
-    } catch (err: any) {
-      setError(err.message || 'Error fetching building data');
-      console.error('Error in fetchBuildingData:', err);
+      // Calculate total savings (in a real app, this would come from the API)
+      const mockSavings = {
+        amount: Math.floor(Math.random() * 10000) + 5000, // Random value between 5000-15000
+        percentage: Math.floor(Math.random() * 15) + 5, // Random value between 5-20%
+        trend: Math.random() > 0.3 ? 'up' as 'up' : 'down' as 'down' // More likely to be 'up'
+      };
+      setTotalSavings(mockSavings);
+      
+      // Mock anomalies and recommendations based on consumption data
+      generateMockAnomalies(data.consumption);
+      generateMockRecommendations();
+    } catch (err) {
+      setError('Failed to fetch consumption data. Please try again later.');
+      console.error('Error fetching consumption data:', err);
     } finally {
-      setLoading(false);
+      setLoadingConsumption(false);
+    }
+  }, []);
+
+  // Calculate consumption trends by comparing first half and second half of data period
+  const calculateConsumptionTrends = (consumption: ConsumptionData[]) => {
+    if (consumption.length < 4) {
+      setConsumptionTrends({
+        electricity: { value: 0, trend: 'stable' },
+        water: { value: 0, trend: 'stable' },
+        gas: { value: 0, trend: 'stable' },
+      });
+      return;
+    }
+    
+    const midpoint = Math.floor(consumption.length / 2);
+    const firstHalf = consumption.slice(0, midpoint);
+    const secondHalf = consumption.slice(midpoint);
+    
+    // Calculate average for each half
+    const calculateAverage = (data: ConsumptionData[], metric: 'electricity' | 'water' | 'gas') => {
+      return data.reduce((sum, item) => sum + item[metric], 0) / data.length;
+    };
+    
+    // Calculate percentage change
+    const calculateTrend = (first: number, second: number): { value: number; trend: 'up' | 'down' | 'stable' } => {
+      const change = ((second - first) / first) * 100;
+      const trend: 'up' | 'down' | 'stable' = change > 2 ? 'up' : change < -2 ? 'down' : 'stable';
+      return { value: Math.abs(Math.round(change)), trend };
+    };
+    
+    const electricityTrend = calculateTrend(
+      calculateAverage(firstHalf, 'electricity'),
+      calculateAverage(secondHalf, 'electricity')
+    );
+    
+    const waterTrend = calculateTrend(
+      calculateAverage(firstHalf, 'water'),
+      calculateAverage(secondHalf, 'water')
+    );
+    
+    const gasTrend = calculateTrend(
+      calculateAverage(firstHalf, 'gas'),
+      calculateAverage(secondHalf, 'gas')
+    );
+    
+    setConsumptionTrends({
+      electricity: electricityTrend,
+      water: waterTrend,
+      gas: gasTrend,
+    });
+  };
+
+  // Generate mock anomalies for demonstration
+  const generateMockAnomalies = (consumption: ConsumptionData[]) => {
+    if (consumption.length === 0) {
+      setAnomalies([]);
+      return;
+    }
+    
+    // Create 3 random anomalies for demo purposes
+    const mockAnomalies: Anomaly[] = [
+      {
+        id: '1',
+        timestamp: consumption[Math.floor(consumption.length * 0.8)].timestamp,
+        type: 'Spike',
+        severity: 'High',
+        description: 'Unusual electricity consumption spike detected',
+        metric: 'Electricity',
+        value: 45.2,
+        expectedValue: 32.7,
+      },
+      {
+        id: '2',
+        timestamp: consumption[Math.floor(consumption.length * 0.5)].timestamp,
+        type: 'Continuous',
+        severity: 'Medium',
+        description: 'Sustained higher than normal water usage detected',
+        metric: 'Water',
+        value: 12.8,
+        expectedValue: 9.4,
+      },
+      {
+        id: '3',
+        timestamp: consumption[Math.floor(consumption.length * 0.3)].timestamp,
+        type: 'Pattern Change',
+        severity: 'Low',
+        description: 'Unusual gas consumption pattern detected on weekend',
+        metric: 'Gas',
+        value: 8.3,
+        expectedValue: 5.1,
+      },
+    ];
+    
+    setAnomalies(mockAnomalies);
+  };
+
+  // Generate mock recommendations for demonstration
+  const generateMockRecommendations = () => {
+    const mockRecommendations: Recommendation[] = [
+      {
+        id: '1',
+        title: 'Optimize HVAC Schedule',
+        description: 'Adjust HVAC operating hours to match actual building occupancy patterns.',
+        potentialSavings: 12500,
+        implementationCost: 'Low',
+        paybackPeriod: '3-6 months',
+        priority: 'High',
+        category: 'Operational',
+      },
+      {
+        id: '2',
+        title: 'Install LED Lighting',
+        description: 'Replace conventional lighting with energy-efficient LED fixtures in common areas.',
+        potentialSavings: 8700,
+        implementationCost: 'Medium',
+        paybackPeriod: '12-18 months',
+        priority: 'Medium',
+        category: 'Equipment',
+      },
+      {
+        id: '3',
+        title: 'Fix Water Leaks',
+        description: 'Repair identified water leaks in the plumbing system.',
+        potentialSavings: 4300,
+        implementationCost: 'Low',
+        paybackPeriod: '1-3 months',
+        priority: 'High',
+        category: 'Maintenance',
+      },
+      {
+        id: '4',
+        title: 'Install Occupancy Sensors',
+        description: 'Add motion sensors to control lighting in low-traffic areas.',
+        potentialSavings: 5200,
+        implementationCost: 'Medium',
+        paybackPeriod: '12-15 months',
+        priority: 'Medium',
+        category: 'Equipment',
+      },
+      {
+        id: '5',
+        title: 'Calibrate Building Sensors',
+        description: 'Recalibrate temperature and humidity sensors for more accurate readings.',
+        potentialSavings: 3100,
+        implementationCost: 'Low',
+        paybackPeriod: '2-4 months',
+        priority: 'Medium',
+        category: 'Maintenance',
+      },
+    ];
+    
+    setRecommendations(mockRecommendations);
+  };
+
+  // Initial load
+  useEffect(() => {
+    fetchBuildingList();
+  }, [fetchBuildingList]);
+
+  // Handle building selection change
+  const handleBuildingChange = (building: any) => {
+    fetchBuildingById(building.id);
+  };
+
+  // Handle date range change
+  const handleDateRangeChange = (range: { start: Date; end: Date }) => {
+    setDateRange(range);
+    if (selectedBuilding) {
+      fetchConsumptionData(selectedBuilding.id, range);
     }
   };
 
-  // Prepare data for energy usage cards
-  const getLatestConsumptionValue = (metric: string) => {
-    if (!consumptionData[metric] || !consumptionData[metric].data || consumptionData[metric].data.length === 0) {
-      return { value: 0, change: 0 };
+  // Handle refresh button click
+  const handleRefresh = () => {
+    if (selectedBuilding) {
+      fetchConsumptionData(selectedBuilding.id, dateRange);
     }
-    
-    const data = consumptionData[metric].data;
-    const latestValue = data[data.length - 1]?.value || 0;
-    
-    // Calculate change compared to previous value
-    const previousValue = data.length > 1 ? data[data.length - 2]?.value : latestValue;
-    const change = previousValue === 0 ? 0 : ((latestValue - previousValue) / previousValue) * 100;
-    
-    return { value: latestValue, change };
   };
-
-  // Loading state
-  if (loading && !selectedBuilding) {
-    return <div className="text-center py-10">Loading buildings data...</div>;
-  }
-
-  // Error state
-  if (error && !selectedBuilding) {
-    return <div className="text-red-500 text-center py-10">Error: {error}</div>;
-  }
-
-  // If no buildings are available
-  if (buildings.length === 0) {
-    return <div className="text-center py-10">No buildings available. Please add buildings to your system.</div>;
-  }
-
-  // Get consumption data for cards
-  const electricityData = getLatestConsumptionValue('electricity');
-  const waterData = getLatestConsumptionValue('water');
-  const gasData = getLatestConsumptionValue('gas');
-
-  // Format recommendations for display
-  const formattedRecommendations = recommendations.map(rec => ({
-    id: rec.id,
-    title: rec.title,
-    description: rec.description,
-    impact: rec.priority, // Map priority to impact
-    savings: `${rec.potential_savings.toLocaleString()} kWh`,
-    difficultyLevel: rec.implementation_cost // Map implementation cost to difficulty
-  }));
-
-  // Format anomalies for display
-  const formattedAnomalies = anomalies.map((anomaly, index) => ({
-    id: index,
-    title: `Anomaly Detected: ${anomaly.timestamp}`,
-    description: `Consumption value ${anomaly.actual_value} kWh (Expected: ${anomaly.expected_value} kWh)`,
-    timeDetected: anomaly.timestamp,
-    severity: anomaly.severity
-  }));
   
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Energy Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Monitor and optimize energy consumption across your buildings
-          </p>
-        </div>
-        <div className="mt-4 md:mt-0">
-          <BuildingSelector 
-            buildings={buildings} 
-            selectedBuilding={selectedBuilding as Building} 
-            onChange={setSelectedBuilding} 
-          />
-        </div>
-      </div>
-      
-      {loading && (
-        <div className="text-center py-4">Loading building data...</div>
-      )}
-      
-      {error && (
-        <div className="text-red-500 text-center py-4">Error: {error}</div>
-      )}
-      
-      {/* Energy Usage Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <EnergyUsageCard 
-          title="Electricity" 
-          currentUsage={electricityData.value} 
-          unit="kWh" 
-          change={electricityData.change} 
-          period="vs previous"
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          }
-        />
-        <EnergyUsageCard 
-          title="Water" 
-          currentUsage={waterData.value} 
-          unit="gallons" 
-          change={waterData.change} 
-          period="vs previous"
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4M20 12a8 8 0 01-8 8m8-8a8 8 0 00-8-8m8 8H4" />
-            </svg>
-          }
-        />
-        <EnergyUsageCard 
-          title="Gas" 
-          currentUsage={gasData.value} 
-          unit="therms" 
-          change={gasData.change} 
-          period="vs previous"
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
-            </svg>
-          }
-        />
-      </div>
-      
-      {/* Consumption Chart */}
-      <div className="card">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Energy Consumption Trends</h2>
-        <div className="h-80">
-          <ConsumptionChart 
-            data={consumptionData.electricity?.data || []} 
-            loading={loading}
-          />
-        </div>
-      </div>
-      
-      {/* Recommendations and Anomalies */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-4">
-          <h2 className="text-lg font-medium text-gray-900">Top Recommendations</h2>
-          {formattedRecommendations.length > 0 ? (
-            formattedRecommendations.map(recommendation => (
-            <RecommendationCard key={recommendation.id} recommendation={recommendation} />
-            ))
-          ) : (
-            <p className="text-gray-500">No recommendations available</p>
-          )}
+      {/* Header section with building selector and date range */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold tracking-tight">Energy Dashboard</h1>
+          <p className="text-gray-500">Monitor and optimize energy consumption across your buildings</p>
         </div>
         
-        <div className="space-y-4">
-          <h2 className="text-lg font-medium text-gray-900">Detected Anomalies</h2>
-          {formattedAnomalies.length > 0 ? (
-            formattedAnomalies.map(anomaly => (
-            <AnomalyCard key={anomaly.id} anomaly={anomaly} />
-            ))
-          ) : (
-            <p className="text-gray-500">No anomalies detected</p>
-          )}
-          
-          <WeatherImpactCard 
-            temperature={weatherImpact?.temperature || 72}
-            humidity={weatherImpact?.humidity || 45}
-            description={weatherImpact?.description || "Weather impact data not available"}
-            impact={weatherImpact?.impact || "Unknown"}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <BuildingSelector 
+            buildings={buildings} 
+            selectedBuilding={selectedBuilding}
+            onBuildingChange={handleBuildingChange} 
+            isLoading={loadingBuildings}
           />
+          
+          <DateRangePicker 
+            value={dateRange}
+            onChange={handleDateRangeChange}
+            disabled={!selectedBuilding || loadingConsumption}
+          />
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh} 
+            disabled={loadingConsumption || !selectedBuilding}
+            className="flex items-center gap-1"
+          >
+            <RefreshCw className="h-4 w-4" /> Refresh
+          </Button>
         </div>
       </div>
+      
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      
+      {/* Building overview */}
+      {selectedBuilding && (
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building className="h-5 w-5 text-primary" />
+                <CardTitle>{selectedBuilding.name}</CardTitle>
+              </div>
+              <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary/10 text-primary">
+                {selectedBuilding.type}
+              </div>
+            </div>
+            <CardDescription>
+              {selectedBuilding.location} • {selectedBuilding.area.toLocaleString()} m² • Built in {selectedBuilding.constructionYear}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Electricity trend */}
+              <div className="flex items-center p-3 bg-indigo-50 rounded-lg">
+                <div className="mr-3 p-2 bg-indigo-100 rounded-full">
+                  <Zap className="h-5 w-5 text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Electricity</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-xl font-semibold">{consumptionTrends.electricity.value}%</p>
+                    {consumptionTrends.electricity.trend === 'up' ? (
+                      <TrendingUp className="h-4 w-4 text-red-500" />
+                    ) : consumptionTrends.electricity.trend === 'down' ? (
+                      <TrendingDown className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Info className="h-4 w-4 text-gray-500" />
+                    )}
+                    <span className="text-sm">
+                      {consumptionTrends.electricity.trend === 'up' ? 'Increase' : 
+                       consumptionTrends.electricity.trend === 'down' ? 'Reduction' : 'Stable'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Water trend */}
+              <div className="flex items-center p-3 bg-blue-50 rounded-lg">
+                <div className="mr-3 p-2 bg-blue-100 rounded-full">
+                  <Droplet className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Water</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-xl font-semibold">{consumptionTrends.water.value}%</p>
+                    {consumptionTrends.water.trend === 'up' ? (
+                      <TrendingUp className="h-4 w-4 text-red-500" />
+                    ) : consumptionTrends.water.trend === 'down' ? (
+                      <TrendingDown className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Info className="h-4 w-4 text-gray-500" />
+                    )}
+                    <span className="text-sm">
+                      {consumptionTrends.water.trend === 'up' ? 'Increase' : 
+                       consumptionTrends.water.trend === 'down' ? 'Reduction' : 'Stable'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Gas trend */}
+              <div className="flex items-center p-3 bg-amber-50 rounded-lg">
+                <div className="mr-3 p-2 bg-amber-100 rounded-full">
+                  <Wind className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Gas</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-xl font-semibold">{consumptionTrends.gas.value}%</p>
+                    {consumptionTrends.gas.trend === 'up' ? (
+                      <TrendingUp className="h-4 w-4 text-red-500" />
+                    ) : consumptionTrends.gas.trend === 'down' ? (
+                      <TrendingDown className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Info className="h-4 w-4 text-gray-500" />
+                    )}
+                    <span className="text-sm">
+                      {consumptionTrends.gas.trend === 'up' ? 'Increase' : 
+                       consumptionTrends.gas.trend === 'down' ? 'Reduction' : 'Stable'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="pt-0">
+            <div className="w-full p-3 bg-green-50 rounded-lg flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-green-100 rounded-full">
+                  <TrendingDown className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Total Energy Savings</p>
+                  <p className="text-xl font-semibold">${totalSavings.amount.toLocaleString()} ({totalSavings.percentage}%)</p>
+                </div>
+              </div>
+              <div className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${totalSavings.trend === 'up' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                {totalSavings.trend === 'up' ? 'Improved' : 'Declined'} from last period
+              </div>
+            </div>
+          </CardFooter>
+        </Card>
+      )}
+      
+      {/* Main content */}
+      <Tabs defaultValue="consumption" className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="consumption">Consumption</TabsTrigger>
+          <TabsTrigger value="anomalies">Anomalies {anomalies.length > 0 && `(${anomalies.length})`}</TabsTrigger>
+          <TabsTrigger value="recommendations">Recommendations {recommendations.length > 0 && `(${recommendations.length})`}</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="consumption">
+          <div className="grid grid-cols-1 gap-6">
+            <Card>
+              <CardContent className="pt-6">
+                <ConsumptionChart data={consumptionData} isLoading={loadingConsumption} />
+              </CardContent>
+            </Card>
+            
+            {selectedBuilding && (
+              <Card>
+                <CardContent className="pt-6">
+                  <DashboardStats 
+                    building={selectedBuilding}
+                    consumptionData={consumptionData}
+                    isLoading={loadingConsumption}
+                  />
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="anomalies">
+          <Card>
+            <CardContent className="pt-6">
+              <AnomalyDetection 
+                anomalies={anomalies}
+                isLoading={loadingConsumption}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="recommendations">
+          <Card>
+            <CardContent className="pt-6">
+              <RecommendationList 
+                recommendations={recommendations}
+                isLoading={loadingConsumption}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

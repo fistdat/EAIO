@@ -1,0 +1,83 @@
+{
+  "weather_api": {
+    "provider": "openweathermap",
+    "base_url": "https://api.openweathermap.org/data/2.5",
+    "api_key_env": "OPENWEATHER_API_KEY",
+    "default_params": {
+      "units": "metric"
+    },
+    "request_timeout": 30,
+    "cache_duration": 1800
+  },
+  "building_systems": {
+    "default_protocol": "bacnet",
+    "connection_timeout": 30,
+    "data_refresh_interval": 300,
+    "polling_frequency": 60,
+    "supported_protocols": [
+      "bacnet",
+      "modbus",
+      "knx",
+      "mqtt"
+    ],
+    "default_credentials": {
+      "auth_method": "basic",
+      "use_env_vars": true,
+      "username_env": "BUILDING_SYSTEM_USER",
+      "password_env": "BUILDING_SYSTEM_PASSWORD"
+    }
+  },
+  "energy_monitoring": {
+    "default_provider": "generic_rest",
+    "base_url": "http://localhost:8000/api",
+    "auth_method": "bearer",
+    "token_env": "ENERGY_API_TOKEN",
+    "cache_duration": 3600,
+    "request_timeout": 30,
+    "default_params": {
+      "format": "json",
+      "interval": "hourly"
+    },
+    "endpoints": {
+      "electricity": "/electricity",
+      "gas": "/gas",
+      "water": "/water",
+      "steam": "/steam",
+      "hotwater": "/hotwater",
+      "chilledwater": "/chilledwater"
+    }
+  },
+  "bdg2_dataset": {
+    "default_path": "data/bdg2",
+    "metadata_file": "metadata.csv",
+    "data_files": {
+      "electricity": "electricity.csv",
+      "gas": "gas.csv",
+      "water": "water.csv",
+      "steam": "steam.csv",
+      "hotwater": "hotwater.csv",
+      "chilledwater": "chilledwater.csv"
+    },
+    "timestamp_column": "timestamp",
+    "timestamp_format": "%Y-%m-%d %H:%M:%S",
+    "building_id_column": "building_id"
+  },
+  "weather_service": {
+    "historical": {
+      "provider": "meteostat",
+      "base_url": "https://api.meteostat.net/v2",
+      "api_key_env": "METEOSTAT_API_KEY",
+      "cache_duration": 86400
+    },
+    "forecast": {
+      "provider": "openweathermap",
+      "base_url": "https://api.openweathermap.org/data/2.5/forecast",
+      "api_key_env": "OPENWEATHER_API_KEY",
+      "default_params": {
+        "units": "metric",
+        "cnt": 40
+      },
+      "cache_duration": 3600
+    }
+  }
+} 

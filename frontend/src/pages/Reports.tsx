@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { buildingApi, analysisApi, recommendationApi } from '../services/api';
+import { buildingApi, analysisApi, recommendationApi } from '../services/api/exports';
 import BuildingSelector from '../components/common/BuildingSelector';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { 
@@ -60,8 +60,8 @@ const Reports: React.FC = () => {
           const formattedBuildings: Building[] = data.map(building => ({
             ...building,
             // Đảm bảo location là string
-            location: typeof building.location === 'object' ? 
-              (building.location?.city ? `${building.location.city}, ${building.location.country || ''}` : '') : 
+            location: typeof building.location === 'object' && building.location !== null ? 
+              ((building.location as any)?.city ? `${(building.location as any).city}, ${(building.location as any).country || ''}` : '') : 
               String(building.location || '')
           }));
           
@@ -404,7 +404,7 @@ const Reports: React.FC = () => {
           <BuildingSelector 
             buildings={buildings} 
             selectedBuilding={selectedBuilding as Building} 
-            onChange={setSelectedBuilding} 
+            onBuildingChange={setSelectedBuilding} 
           />
         </div>
       </div>
@@ -506,7 +506,7 @@ const Reports: React.FC = () => {
                     <svg className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                     </svg>
-                    Building Size: {reportData.building.size.toLocaleString()} m²
+                    Building Size: {reportData.building.size ? reportData.building.size.toLocaleString() : 'N/A'} m²
                   </div>
                   <div className="mt-2 flex items-center text-sm text-gray-500">
                     <svg className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -535,19 +535,19 @@ const Reports: React.FC = () => {
             <div className="card p-6">
               <h3 className="font-semibold text-lg mb-2">Total Electricity</h3>
               <p className="text-3xl font-bold text-indigo-600">
-                {reportData.consumption.electricity.total.toLocaleString()} kWh
+                {reportData.consumption.electricity.total ? reportData.consumption.electricity.total.toLocaleString() : '0'} kWh
               </p>
               <p className="text-sm text-gray-500 mt-1">
-                Average intensity: {(reportData.consumption.electricity.total / reportData.building.size).toFixed(2)} kWh/m²
+                Average intensity: {reportData.building.size ? (reportData.consumption.electricity.total / reportData.building.size).toFixed(2) : 'N/A'} kWh/m²
               </p>
             </div>
             <div className="card p-6">
               <h3 className="font-semibold text-lg mb-2">Potential Savings</h3>
               <p className="text-3xl font-bold text-green-600">
-                {reportData.estimated_savings.electricity.toLocaleString()} kWh
+                {reportData.estimated_savings.electricity ? reportData.estimated_savings.electricity.toLocaleString() : '0'} kWh
               </p>
               <p className="text-sm text-green-500 mt-1">
-                Approximately ${reportData.estimated_savings.cost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                Approximately ${reportData.estimated_savings.cost ? reportData.estimated_savings.cost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0.00'}
               </p>
             </div>
             <div className="card p-6">
@@ -589,12 +589,12 @@ const Reports: React.FC = () => {
                       },
                       tooltip: {
                         callbacks: {
-                          label: function(context) {
+                          label: function(context: any) {
                             const label = context.label || '';
                             const value = context.raw as number;
                             const total = (context.dataset.data as number[]).reduce((a, b) => (a as number) + (b as number), 0);
                             const percentage = Math.round(value / (total as number) * 100);
-                            return `${label}: ${value.toLocaleString()} (${percentage}%)`;
+                            return `${label}: ${value ? value.toLocaleString() : '0'} (${percentage}%)`;
                           }
                         }
                       }
@@ -668,8 +668,8 @@ const Reports: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-3 py-4 text-sm text-gray-500">
-                          {rec.potential_savings.toLocaleString()} kWh
-                          <div className="text-xs text-green-600">${(rec.potential_savings * 0.12).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                          {rec.potential_savings ? rec.potential_savings.toLocaleString() : '0'} kWh
+                          <div className="text-xs text-green-600">${rec.potential_savings ? (rec.potential_savings * 0.12).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0.00'}</div>
                         </td>
                         <td className="px-3 py-4 text-sm">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -714,10 +714,10 @@ const Reports: React.FC = () => {
                           {new Date(anomaly.timestamp).toLocaleDateString()}
                         </td>
                         <td className="px-3 py-4 text-sm text-gray-500">
-                          {anomaly.expected_value.toLocaleString()} kWh
+                          {anomaly.expected_value ? anomaly.expected_value.toLocaleString() : '0'} kWh
                         </td>
                         <td className="px-3 py-4 text-sm text-gray-500">
-                          {anomaly.actual_value.toLocaleString()} kWh
+                          {anomaly.actual_value ? anomaly.actual_value.toLocaleString() : '0'} kWh
                         </td>
                         <td className="px-3 py-4 text-sm text-gray-500">
                           {((anomaly.actual_value - anomaly.expected_value) / anomaly.expected_value * 100).toFixed(1)}%
@@ -747,7 +747,7 @@ const Reports: React.FC = () => {
           <div className="card p-6">
             <h3 className="font-semibold text-lg mb-4">Report Summary</h3>
             <p className="text-gray-700 mb-3">
-              {selectedBuilding?.name} consumed a total of {reportData.consumption.electricity.total.toLocaleString()} kWh 
+              {selectedBuilding?.name} consumed a total of {reportData.consumption.electricity.total ? reportData.consumption.electricity.total.toLocaleString() : '0'} kWh 
               of electricity during {formatPeriodForDisplay()}. The building's performance score is {reportData.performance_score}/100,
               which is considered {
                 reportData.performance_score >= 80 ? 'excellent' :
@@ -764,7 +764,7 @@ const Reports: React.FC = () => {
             )}
             {reportData.recommendations.length > 0 && (
               <p className="text-gray-700 mb-3">
-                Implementing the top recommendations could save approximately {reportData.estimated_savings.electricity.toLocaleString()} kWh (${reportData.estimated_savings.cost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})})
+                Implementing the top recommendations could save approximately {reportData.estimated_savings.electricity ? reportData.estimated_savings.electricity.toLocaleString() : '0'} kWh (${reportData.estimated_savings.cost ? reportData.estimated_savings.cost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0.00'})
                 annually, which would significantly improve the building's energy performance.
               </p>
             )}

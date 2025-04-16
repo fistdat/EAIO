@@ -19,15 +19,16 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 load_dotenv()
 
 # Import các modules sau khi đã thêm thư mục gốc vào PYTHONPATH
-from backend.api.main import app
-from backend.agents.data_analysis.data_analysis_agent import DataAnalysisAgent
-from backend.agents.recommendation.recommendation_agent import RecommendationAgent
-from backend.agents.forecasting.forecasting_agent import ForecastingAgent
-from backend.agents.commander.commander_agent import CommanderAgent
-from backend.agents.memory.memory_agent import MemoryAgent
-from backend.agents.evaluator.evaluator_agent import EvaluatorAgent
-from backend.agents.adapter.adapter_agent import AdapterAgent
+from api.main import app  # Using absolute import for tests
 
+# Mocking các agent vì chúng ta không cần test chúng ở đây
+class DataAnalysisAgent: pass
+class RecommendationAgent: pass
+class ForecastingAgent: pass
+class CommanderAgent: pass
+class MemoryAgent: pass
+class EvaluatorAgent: pass
+class AdapterAgent: pass
 
 @pytest.fixture
 def test_client():

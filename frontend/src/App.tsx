@@ -7,6 +7,7 @@ import Analytics from './pages/Analytics';
 import Forecasting from './pages/Forecasting';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import ChatPage from './components/chat/ChatPage';
 
 const App: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -27,6 +28,7 @@ const App: React.FC = () => {
             <Route path="/forecasting" element={<Forecasting />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/chat" element={<ChatPage />} />
           </Routes>
         </main>
       </div>

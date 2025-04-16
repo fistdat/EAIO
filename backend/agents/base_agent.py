@@ -8,7 +8,14 @@ import os
 import json
 import uuid
 from datetime import datetime
+import time
+import random
+import requests
+import backoff
+import traceback
+from tenacity import retry, stop_after_attempt, wait_exponential
 
+# Import configuration and logging
 from config import config
 from utils.logging_utils import get_logger
 
@@ -205,13 +212,14 @@ class BaseAgent:
             )
             
             # Get the last response from the agent
-            last_message = self.agent.chat_messages[user_proxy][0] if self.agent.chat_messages else ""
+            last_message = user_proxy.last_message()
+            response_content = last_message.get("content", "") if last_message else ""
             
             # Record response in history
-            self._record_message(self.name, last_message)
+            self._record_message(self.name, response_content)
             
             logger.info(f"Generated response for {self.name} agent")
-            return last_message
+            return response_content
         except Exception as e:
             logger.error(f"Error processing message: {str(e)}")
             error_msg = f"Error processing your message: {str(e)}"
@@ -249,7 +257,7 @@ class BaseAgent:
         # Also clear the AutoGen agent's chat history
         if hasattr(self.agent, 'clear_chat_history'):
             self.agent.clear_chat_history()
-        logger.info(f"Cleared history for {self.name} agent")
+            logger.info(f"Cleared chat history for {self.name} agent")
     
     def save_history(self, file_path: Optional[str] = None) -> bool:
         """
@@ -259,60 +267,59 @@ class BaseAgent:
             file_path: Path to save the history (optional)
             
         Returns:
-            bool: True if successful, False otherwise
+            bool: True if save was successful
         """
         try:
-            # Generate file path if not provided
             if file_path is None:
+                # Generate default file path
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                file_path = f"logs/agent_history_{self.name}_{timestamp}.json"
+                file_path = f"{self.name}_{timestamp}_history.json"
             
-            # Ensure directory exists
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            # Create history object
+            history_obj = {
+                'agent_id': self.agent_id,
+                'agent_name': self.name,
+                'timestamp': datetime.now().isoformat(),
+                'messages': self.message_history
+            }
             
-            # Save history to file
+            # Write to file
             with open(file_path, 'w') as f:
-                json.dump({
-                    'agent_id': self.agent_id,
-                    'agent_name': self.name,
-                    'history': self.message_history
-                }, f, indent=2)
+                json.dump(history_obj, f, indent=2)
             
             logger.info(f"Saved message history to {file_path}")
             return True
+        
         except Exception as e:
             logger.error(f"Error saving message history: {str(e)}")
             return False
     
     def load_history(self, file_path: str) -> bool:
         """
-        Load the agent's message history from a file.
+        Load message history from a file.
         
         Args:
             file_path: Path to the history file
             
         Returns:
-            bool: True if successful, False otherwise
+            bool: True if load was successful
         """
         try:
-            # Check if file exists
-            if not os.path.exists(file_path):
-                logger.error(f"History file not found: {file_path}")
+            # Read from file
+            with open(file_path, 'r') as f:
+                history_obj = json.load(f)
+            
+            # Validate history object
+            if 'messages' not in history_obj:
+                logger.error(f"Invalid history file: {file_path}")
                 return False
             
-            # Load history from file
-            with open(file_path, 'r') as f:
-                data = json.load(f)
-            
-            # Check if the history is for this agent
-            if data['agent_name'] != self.name:
-                logger.warning(f"Loading history from a different agent: {data['agent_name']}")
-            
-            # Set the history
-            self.message_history = data['history']
+            # Set message history
+            self.message_history = history_obj['messages']
             
             logger.info(f"Loaded message history from {file_path}")
             return True
+        
         except Exception as e:
             logger.error(f"Error loading message history: {str(e)}")
             return False
@@ -322,7 +329,7 @@ class BaseAgent:
         Get the agent's system message.
         
         Returns:
-            str: The system message
+            str: System message
         """
         return self.system_message
     
@@ -331,13 +338,11 @@ class BaseAgent:
         Update the agent's system message.
         
         Args:
-            new_message: The new system message
+            new_message: New system message
         """
         self.system_message = new_message
-        
         # Reinitialize the agent with the new system message
         self._init_agent()
-        
         logger.info(f"Updated system message for {self.name} agent")
     
     def get_config(self) -> Dict[str, Any]:
@@ -345,14 +350,14 @@ class BaseAgent:
         Get the agent's configuration.
         
         Returns:
-            Dict[str, Any]: The agent configuration
+            Dict[str, Any]: Agent configuration
         """
         return {
             'name': self.name,
             'model': self.model,
             'temperature': self.temperature,
             'max_tokens': self.max_tokens,
-            'agent_id': self.agent_id,
+            'agent_id': self.agent_id
         }
     
     def update_config(self, config: Dict[str, Any]):
@@ -360,9 +365,9 @@ class BaseAgent:
         Update the agent's configuration.
         
         Args:
-            config: The new configuration
+            config: New configuration parameters
         """
-        # Update config parameters
+        # Update configuration attributes
         if 'name' in config:
             self.name = config['name']
         
@@ -375,16 +380,21 @@ class BaseAgent:
         if 'max_tokens' in config:
             self.max_tokens = config['max_tokens']
         
-        # Update config_list
-        self.config_list[0].update({
-            'model': self.model,
-            'temperature': self.temperature,
-        })
+        if 'api_key' in config:
+            self.api_key = config['api_key']
         
+        # Update config list
+        self.config_list = [{
+            'model': self.model,
+            'api_key': self.api_key,
+            'temperature': self.temperature,
+        }]
+        
+        # Add max_tokens if specified
         if self.max_tokens:
             self.config_list[0]['max_tokens'] = self.max_tokens
         
-        # Reinitialize the agent with new config
+        # Reinitialize the agent with the new configuration
         self._init_agent()
         
         logger.info(f"Updated configuration for {self.name} agent")
@@ -395,72 +405,37 @@ class BaseAgent:
         steps: List[Callable[[Dict[str, Any]], Dict[str, Any]]]
     ) -> Dict[str, Any]:
         """
-        Perform multi-step processing with the agent.
+        Perform multi-step processing using a sequence of functions.
+        
+        This allows chaining together multiple processing steps, where each step
+        takes the output of the previous step as input.
         
         Args:
-            inputs: Input data for processing
-            steps: List of processing step functions
+            inputs: Initial input data
+            steps: List of processing functions
             
         Returns:
-            Dict[str, Any]: The processing results
+            Dict[str, Any]: Final processing results
         """
         try:
-            logger.info(f"Starting multi-step processing for {self.name} agent")
+            logger.info(f"Starting multi-step processing with {len(steps)} steps")
             
-            results = {
-                'agent': self.name,
-                'agent_id': self.agent_id,
-                'timestamp': datetime.now().isoformat(),
-                'steps': [],
-                'final_output': None,
-            }
-            
-            current_state = inputs.copy()
+            results = inputs.copy()
             
             # Execute each step in sequence
-            for i, step_func in enumerate(steps):
-                step_name = step_func.__name__ if hasattr(step_func, '__name__') else f"step_{i+1}"
-                logger.info(f"Executing {step_name}")
+            for i, step in enumerate(steps):
+                logger.info(f"Executing step {i+1}/{len(steps)}")
                 
-                try:
-                    # Execute the step
-                    step_result = step_func(current_state)
-                    
-                    # Update the current state for the next step
-                    current_state.update(step_result)
-                    
-                    # Record the step results
-                    results['steps'].append({
-                        'step_name': step_name,
-                        'success': True,
-                        'output': step_result
-                    })
-                    
-                    logger.info(f"Completed {step_name}")
-                except Exception as e:
-                    logger.error(f"Error in {step_name}: {str(e)}")
-                    
-                    # Record the error
-                    results['steps'].append({
-                        'step_name': step_name,
-                        'success': False,
-                        'error': str(e)
-                    })
-                    
-                    # Break the processing if a step fails
-                    break
+                # Call the step function with the current results
+                step_result = step(results)
+                
+                # Update results with the step output
+                results.update(step_result)
             
-            # Set the final output
-            results['final_output'] = current_state
+            logger.info(f"Completed multi-step processing")
             
-            logger.info(f"Completed multi-step processing for {self.name} agent")
             return results
+        
         except Exception as e:
             logger.error(f"Error in multi-step processing: {str(e)}")
-            return {
-                'agent': self.name,
-                'agent_id': self.agent_id,
-                'timestamp': datetime.now().isoformat(),
-                'error': str(e),
-                'success': False
-            } 
+            raise 

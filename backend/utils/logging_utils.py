@@ -1,91 +1,129 @@
+"""
+Logging utilities for the Energy AI Optimizer.
+"""
 import logging
 import os
 import sys
-from pathlib import Path
-from typing import Optional
+from datetime import datetime
+from typing import Dict, Optional
 
-# Use absolute import instead of relative import
-from config import config
+# Configure basic logging format
+LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-# Ensure logs directory exists
-logs_dir = Path(os.path.dirname(config.LOG_FILE))
-logs_dir.mkdir(parents=True, exist_ok=True)
+# Define log levels
+LOG_LEVELS = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+    "critical": logging.CRITICAL
+}
 
-def setup_logger(name: str, level: Optional[str] = None) -> logging.Logger:
+# Mapping of logger names to loggers
+loggers: Dict[str, logging.Logger] = {}
+
+def setup_logging(
+    log_level: str = "info",
+    log_dir: Optional[str] = None,
+    console_output: bool = True
+) -> None:
     """
-    Set up a logger with specified name and level.
+    Set up logging configuration.
     
     Args:
-        name: The name of the logger
-        level: The log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        
-    Returns:
-        logging.Logger: Configured logger instance
+        log_level: Log level (debug, info, warning, error, critical)
+        log_dir: Directory to store log files
+        console_output: Whether to output logs to console
     """
-    # Get log level from config if not specified
-    if level is None:
-        level = config.LOG_LEVEL
+    # Convert log level string to logging level
+    level = LOG_LEVELS.get(log_level.lower(), logging.INFO)
     
-    # Map string level to logging constants
-    log_level = getattr(logging, level.upper(), logging.INFO)
+    # Set up root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
     
-    # Create logger
-    logger = logging.getLogger(name)
-    logger.setLevel(log_level)
-    
-    # Clear existing handlers if any
-    if logger.handlers:
-        logger.handlers.clear()
+    # Clear existing handlers
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
     
     # Create formatters
-    console_formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    file_formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s'
-    )
+    formatter = logging.Formatter(LOG_FORMAT, DATE_FORMAT)
     
-    # Create console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(log_level)
-    console_handler.setFormatter(console_formatter)
+    # Add console handler if requested
+    if console_output:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(formatter)
+        root_logger.addHandler(console_handler)
     
-    # Create file handler
-    file_handler = logging.FileHandler(config.LOG_FILE)
-    file_handler.setLevel(log_level)
-    file_handler.setFormatter(file_formatter)
+    # Add file handler if log directory is provided
+    if log_dir:
+        # Create log directory if it doesn't exist
+        os.makedirs(log_dir, exist_ok=True)
+        
+        # Create log filename based on current date
+        date_str = datetime.now().strftime("%Y%m%d")
+        log_file = os.path.join(log_dir, f"eaio_{date_str}.log")
+        
+        # Add file handler
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
     
-    # Add handlers to logger
-    logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
-    
-    return logger
-
-# Create application logger
-app_logger = setup_logger('eaio')
-
-# Create agent loggers
-data_analysis_logger = setup_logger('eaio.agent.data_analysis')
-recommendation_logger = setup_logger('eaio.agent.recommendation')
-forecasting_logger = setup_logger('eaio.agent.forecasting')
-commander_logger = setup_logger('eaio.agent.commander')
-
-# Create data loggers
-building_data_logger = setup_logger('eaio.data.building')
-weather_data_logger = setup_logger('eaio.data.weather')
-metadata_logger = setup_logger('eaio.data.metadata')
-
-# Create API logger
-api_logger = setup_logger('eaio.api')
+    logging.info(f"Logging initialized at level: {log_level}")
 
 def get_logger(name: str) -> logging.Logger:
     """
-    Get a logger by name.
+    Get a logger with the specified name.
     
     Args:
-        name: The name of the logger
+        name: Logger name
         
     Returns:
         logging.Logger: Logger instance
     """
-    return logging.getLogger(name) 
+    if name in loggers:
+        return loggers[name]
+    
+    logger = logging.getLogger(name)
+    loggers[name] = logger
+    
+    return logger
+
+def log_agent_activity(
+    logger: logging.Logger,
+    agent_name: str,
+    action: str,
+    details: Optional[Dict] = None,
+    level: str = "info"
+) -> None:
+    """
+    Log agent activity with structured details.
+    
+    Args:
+        logger: Logger instance
+        agent_name: Name of the agent
+        action: Action being performed
+        details: Additional details
+        level: Log level
+    """
+    log_method = getattr(logger, level.lower())
+    
+    # Create log message
+    message = f"Agent {agent_name} performed {action}"
+    
+    # Add details if provided
+    if details:
+        import json
+        detail_str = json.dumps(details)
+        message += f" | Details: {detail_str}"
+    
+    # Log the message
+    log_method(message)
+
+# Initialize logging with default settings
+setup_logging(
+    log_level=os.environ.get("EAIO_LOG_LEVEL", "info"),
+    log_dir=os.environ.get("EAIO_LOG_DIR"),
+    console_output=True
+) 

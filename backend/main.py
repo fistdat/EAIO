@@ -15,6 +15,7 @@ from datetime import datetime
 
 # Import the API router
 from api.routes import api_router
+from data.database import init_db, seed_demo_data
 
 # Configure logging
 logging.basicConfig(
@@ -22,7 +23,7 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler("logs/eaio.log")
+        logging.FileHandler("logs/eaio.log", mode="a")
     ]
 )
 logger = logging.getLogger("eaio")
@@ -55,7 +56,13 @@ async def root():
         "name": "Energy AI Optimizer API",
         "version": "0.1.0",
         "status": "operational",
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
+        "available_workflows": [
+            "energy_optimization",
+            "anomaly_detection",
+            "consumption_forecast",
+            "comprehensive_analysis"
+        ]
     }
 
 # Health check endpoint
@@ -64,6 +71,28 @@ async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
+# Initialize database on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database and create demo data on startup."""
+    logger.info("Initializing application")
+    try:
+        # Initialize database tables
+        init_db()
+        
+        # Tạo dữ liệu demo cho môi trường phát triển
+        if os.getenv("ENVIRONMENT", "development") == "development":
+            seed_demo_data()
+        
+        logger.info("Application initialized successfully")
+    except Exception as e:
+        logger.error(f"Error during application initialization: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
+    
+    # Create log directory if it doesn't exist
+    os.makedirs("logs", exist_ok=True)
+    
+    # Run the application
     uvicorn.run(app, host="0.0.0.0", port=8000) 

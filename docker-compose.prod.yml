@@ -18,11 +18,12 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=gpt-4o-mini
       - WEATHER_API_KEY=${WEATHER_API_KEY}
-      - DATABASE_URL=mongodb://mongo:27017/energy-ai-optimizer
+      - POSTGRES_URL=postgresql://eaio:eaiopassword@postgres:5432/energy-ai-optimizer
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - LOG_LEVEL=INFO
+      - DB_TYPE=postgres
     depends_on:
-      - mongo
+      - postgres
       - redis
     command: bash -c "cd /app && python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 1"
 
@@ -51,15 +52,21 @@ services:
       - ./docs:/usr/share/nginx/html
     command: sh -c "echo '<html><head><title>Energy AI Optimizer</title></head><body><h1>Energy AI Optimizer</h1><p>Hệ thống đa tác tử AI tối ưu hóa năng lượng cho tòa nhà sử dụng Microsoft AutoGen, OpenAI GPT-4o Mini, Python backend và Node.js frontend.</p><p>Phiên bản demo đang được cài đặt.</p></body></html>' > /usr/share/nginx/html/index.html && nginx -g 'daemon off;'"
 
-  # MongoDB for data storage
-  mongo:
-    image: mongo:6.0
-    container_name: eaio-mongo-prod
+  # PostgreSQL with TimescaleDB
+  postgres:
+    image: timescale/timescaledb:latest-pg14
+    container_name: eaio-postgres-prod
     restart: always
+    ports:
+      - "5432:5432"
     volumes:
-      - mongo-data:/data/db
+      - postgres-data:/var/lib/postgresql/data
+      - ./backend/config/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     environment:
-      - MONGO_INITDB_DATABASE=energy-ai-optimizer
+      - POSTGRES_USER=eaio
+      - POSTGRES_PASSWORD=eaiopassword
+      - POSTGRES_DB=energy-ai-optimizer
+    command: postgres -c shared_preload_libraries=timescaledb
 
   # Redis for caching and pub/sub
   redis:
@@ -109,7 +116,7 @@ services:
     command: minio server /data
 
 volumes:
-  mongo-data:
+  postgres-data:
   redis-data:
   milvus-data:
   etcd-data:

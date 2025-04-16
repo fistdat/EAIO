@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { ReactElement } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface Anomaly {
@@ -10,12 +10,10 @@ interface Anomaly {
 }
 
 interface AnomalyCardProps {
-  anomaly: Anomaly;
+  anomalies: Anomaly[];
 }
 
-const AnomalyCard: React.FC<AnomalyCardProps> = ({ anomaly }) => {
-  const { title, description, timeDetected, severity } = anomaly;
-  
+const AnomalyCard: React.FC<AnomalyCardProps> = ({ anomalies }) => {
   const getSeverityColor = (severity: string): string => {
     switch (severity) {
       case 'High':
@@ -29,7 +27,7 @@ const AnomalyCard: React.FC<AnomalyCardProps> = ({ anomaly }) => {
     }
   };
   
-  const getSeverityIcon = (severity: string): JSX.Element => {
+  const getSeverityIcon = (severity: string): ReactElement => {
     switch (severity) {
       case 'High':
         return (
@@ -58,42 +56,60 @@ const AnomalyCard: React.FC<AnomalyCardProps> = ({ anomaly }) => {
     }
   };
   
-  // Format time as "X hours/days ago"
-  const timeAgo = formatDistanceToNow(new Date(timeDetected), { addSuffix: true });
+  if (!anomalies || anomalies.length === 0) {
+    return (
+      <div className="card p-4 text-center">
+        <p className="text-gray-500">Không có dữ liệu bất thường</p>
+      </div>
+    );
+  }
   
   return (
-    <div className="card hover:shadow-md transition-shadow duration-300">
-      <div className="flex items-start justify-between">
-        <div className="flex items-start space-x-3">
-          <div className={`p-2 rounded-full ${getSeverityColor(severity)}`}>
-            {getSeverityIcon(severity)}
-          </div>
-          <div>
-            <h3 className="text-lg font-medium text-gray-900">{title}</h3>
-            <p className="mt-1 text-gray-600">{description}</p>
-            <div className="mt-2 flex items-center space-x-2">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(severity)}`}>
-                {severity} Severity
-              </span>
-              <span className="text-xs text-gray-500">Detected {timeAgo}</span>
+    <div className="card p-4">
+      <h2 className="text-xl font-semibold mb-4">Dữ liệu bất thường</h2>
+      <div className="space-y-4">
+        {anomalies.map((anomaly) => {
+          const { id, title, description, timeDetected, severity } = anomaly;
+          // Format time as "X hours/days ago"
+          const timeAgo = formatDistanceToNow(new Date(timeDetected), { addSuffix: true });
+          
+          return (
+            <div key={id} className="border-b pb-4 last:border-0 last:pb-0 hover:shadow-md transition-shadow duration-300">
+              <div className="flex items-start justify-between">
+                <div className="flex items-start space-x-3">
+                  <div className={`p-2 rounded-full ${getSeverityColor(severity)}`}>
+                    {getSeverityIcon(severity)}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+                    <p className="mt-1 text-gray-600">{description}</p>
+                    <div className="mt-2 flex items-center space-x-2">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(severity)}`}>
+                        {severity} Severity
+                      </span>
+                      <span className="text-xs text-gray-500">Detected {timeAgo}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <button className="p-1 text-gray-400 hover:text-gray-600">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="mt-4 flex justify-end space-x-2">
+                <button className="btn bg-white text-gray-700 border border-gray-300 hover:bg-gray-50">
+                  Bỏ qua
+                </button>
+                <button className="btn btn-primary">
+                  Kiểm tra
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-        
-        <button className="p-1 text-gray-400 hover:text-gray-600">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" />
-          </svg>
-        </button>
-      </div>
-      
-      <div className="mt-4 flex justify-end space-x-2">
-        <button className="btn bg-white text-gray-700 border border-gray-300 hover:bg-gray-50">
-          Dismiss
-        </button>
-        <button className="btn btn-primary">
-          Investigate
-        </button>
+          );
+        })}
       </div>
     </div>
   );

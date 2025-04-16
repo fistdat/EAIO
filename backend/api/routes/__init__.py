@@ -14,6 +14,7 @@ from .adapter_routes import router as adapter_router
 from .memory_routes import router as memory_router
 from .evaluator_routes import router as evaluator_router
 from .commander_routes import router as commander_router
+from .chat import router as chat_router
 
 # Create a list of all routers
 routers = [
@@ -25,7 +26,8 @@ routers = [
     adapter_router,
     memory_router,
     evaluator_router,
-    commander_router
+    commander_router,
+    chat_router
 ]
 
 # Create the main API router

@@ -650,94 +650,62 @@ async def integrate_results(
 async def orchestrate_agents(
     request: Dict[str, Any] = Body(...)
 ):
-    """Orchestrate a complex multi-agent workflow."""
+    """
+    Orchestrate interactions between multiple agents for a specific task.
+    
+    This endpoint provides a higher-level interface for multi-agent workflows.
+    """
     try:
-        # Validate request
-        required_fields = ["workflow_definition", "inputs"]
-        for field in required_fields:
-            if field not in request:
-                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+        logger.info(f"Received orchestration request: {json.dumps(request)}")
         
-        # Extract workflow steps
-        workflow_definition = request["workflow_definition"]
-        workflow_steps = workflow_definition.get("steps", [])
-        if not workflow_steps:
-            raise HTTPException(status_code=400, detail="Workflow definition must contain steps")
+        # Extract request parameters
+        workflow_name = request.get("workflow_name")
+        if not workflow_name:
+            raise HTTPException(status_code=400, detail="workflow_name is required")
         
-        # Generate a workflow ID
-        workflow_id = f"workflow-{str(uuid.uuid4())[:8]}"
+        # Get user role
+        user_role = request.get("user_role", "facility_manager")
         
-        # Create a workflow record
-        workflow = {
-            "id": workflow_id,
-            "name": workflow_definition.get("name", "Custom Workflow"),
-            "status": "initiated",
-            "steps": [],
-            "started_at": datetime.now().isoformat(),
-            "completed_at": None,
-            "inputs": request["inputs"],
-            "results": {}
-        }
+        # Get building ID
+        building_id = request.get("building_id")
         
-        # Add to workflow storage
-        WORKFLOW_STATUSES[workflow_id] = workflow
+        # Extract input data
+        input_data = request.get("input_data", {})
         
-        # Mark as in progress
-        workflow["status"] = "in_progress"
-        
-        # Initialize the Commander Agent if not already
+        # Initialize agents if needed
         if not commander_agent.data_analysis_agent:
             logger.info("Initializing agents for orchestration")
             commander_agent.initialize_agents()
         
-        # Execute on steps using multi-step processing
-        try:
-            # Execute multi-step query with conversation history
-            conversation_history = request.get("conversation_history", [])
-            query = request.get("inputs", {}).get("query", "")
-            building_id = request.get("inputs", {}).get("building_id", None)
-            user_role = request.get("inputs", {}).get("user_role", "facility_manager")
-            
-            # Get building data if building_id is provided
-            building_data = None
-            if building_id:
-                building_data = prepare_building_data(
-                    building_id=building_id,
-                    metrics=["electricity", "gas", "water"]
-                )
-            
-            # Process multi-step query
-            multi_step_results = commander_agent.handle_multi_step_query(
-                query=query,
-                conversation_history=conversation_history,
-                user_role=user_role,
-                building_data=building_data
-            )
-            
-            # Store results in workflow
-            workflow["results"] = multi_step_results
-            workflow["status"] = "completed"
-            workflow["completed_at"] = datetime.now().isoformat()
+        # Start timer
+        start_time = datetime.now()
         
-        except Exception as e:
-            logger.error(f"Error executing workflow steps: {str(e)}")
-            workflow["status"] = "failed"
-            workflow["error"] = str(e)
-            workflow["completed_at"] = datetime.now().isoformat()
+        # Call the new orchestrate_agents method
+        results = commander_agent.orchestrate_agents(
+            workflow_name=workflow_name,
+            input_data=input_data,
+            user_role=user_role,
+            building_id=building_id
+        )
         
-        # Return workflow status
-        return {
-            "workflow_id": workflow_id,
-            "status": workflow["status"],
-            "message": f"Orchestration {workflow['status']}",
-            "workflow": workflow
+        # Calculate execution time
+        execution_time_ms = (datetime.now() - start_time).total_seconds() * 1000
+        
+        # Add metadata to response
+        response = {
+            "status": "success",
+            "workflow_name": workflow_name,
+            "execution_time_ms": execution_time_ms,
+            "timestamp": datetime.now().isoformat(),
+            "results": results
         }
-    
-    except HTTPException:
-        raise
+        
+        logger.info(f"Completed orchestration for {workflow_name}")
+        return response
+        
     except Exception as e:
-        logger.error(f"Error orchestrating agents: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        logger.error(f"Error in agent orchestration: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Orchestration error: {str(e)}")
 
 # Helper functions
 def get_workflow_name(workflow_type):

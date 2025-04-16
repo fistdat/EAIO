@@ -13,19 +13,22 @@ services:
     volumes:
       - ./backend:/app
       - ./data:/app/data
+      - python-packages:/usr/local/lib/python3.10/site-packages
     environment:
       - PYTHONPATH=/app
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=gpt-4o-mini
       - WEATHER_API_KEY=${WEATHER_API_KEY}
-      - DATABASE_URL=mongodb://mongo:27017/energy-ai-optimizer
+      - POSTGRES_URL=postgresql://eaio:eaiopassword@postgres:5432/energy-ai-optimizer
       - REDIS_URL=redis://redis:6379/0
-      - LOG_LEVEL=INFO
+      - LOG_LEVEL=DEBUG
       - EAIO_DATA_PATH=/app/data
+      - DB_TYPE=postgres
+      - DISABLE_VECTOR_DB=true
     depends_on:
-      - mongo
+      - postgres
       - redis
-    command: bash -c "cd /app && python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    command: bash -c "cd /app && chmod +x start.sh && ./start.sh"
 
   # Frontend application  
   frontend:
@@ -46,17 +49,37 @@ services:
       - backend
     command: sh -c "cd /app && npm install --force && npm install ajv@8.12.0 --force && npm start"
 
-  # MongoDB for data storage
-  mongo:
-    image: mongo:6.0
-    container_name: eaio-mongo
+  # PostgreSQL with TimescaleDB
+  postgres:
+    image: timescale/timescaledb:latest-pg14
+    container_name: eaio-postgres
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "5432:5432"
     volumes:
-      - mongo-data:/data/db
+      - postgres-data:/var/lib/postgresql/data
+      - ./backend/config/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     environment:
-      - MONGO_INITDB_DATABASE=energy-ai-optimizer
+      - POSTGRES_USER=eaio
+      - POSTGRES_PASSWORD=eaiopassword
+      - POSTGRES_DB=energy-ai-optimizer
+    command: postgres -c shared_preload_libraries=timescaledb
+
+  # pgAdmin for PostgreSQL Management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: eaio-pgadmin
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@eaio.com
+      - PGADMIN_DEFAULT_PASSWORD=eaiopassword
+      - PGADMIN_CONFIG_SERVER_MODE=True
+    depends_on:
+      - postgres
 
   # Redis for caching and pub/sub
   redis:
@@ -71,6 +94,7 @@ services:
   # Vector database (Milvus)
   milvus:
     image: milvusdb/milvus:v2.2.9
+    platform: linux/amd64
     container_name: eaio-milvus
     restart: unless-stopped
     ports:
@@ -115,8 +139,21 @@ services:
       retries: 3
 
 volumes:
-  mongo-data:
+  python-packages:
   redis-data:
   milvus-data:
   etcd-data:
   minio-data:
+  postgres-data:
+  pgadmin-data:
+
+# Hướng dẫn sử dụng pgAdmin:
+# 1. Truy cập http://localhost:5050
+# 2. Đăng nhập với admin@eaio.com / eaiopassword
+# 3. Thêm server mới với các thông tin sau:
+#    - General > Name: EAIO PostgreSQL
+#    - Connection > Host: postgres
+#    - Connection > Port: 5432
+#    - Connection > Username: eaio
+#    - Connection > Password: eaiopassword
+#    - Connection > Database: energy-ai-optimizer

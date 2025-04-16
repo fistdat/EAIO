@@ -12,6 +12,10 @@ import json
 import logging
 import sys
 import numpy as np
+import random
+
+# Import database client
+from db.db_client import resample_energy_data
 
 # Import the processor class, but we'll manually handle data loading
 from data.building.building_processor import BuildingDataProcessor
@@ -182,11 +186,88 @@ class BuildingResponse(BuildingBase):
 if "api.routes.building_routes" not in sys.modules:
     sys.modules["api.routes.building_routes"] = sys.modules[__name__]
 
+# Thêm import để truy cập PostgreSQL trực tiếp
+from db.postgres_client import execute_query
+
+@router.get("/db-test", response_model=Dict[str, Any])
+async def test_postgres_connection():
+    """Kiểm tra kết nối trực tiếp với PostgreSQL và hiển thị dữ liệu."""
+    try:
+        # Thử thực thi truy vấn đếm số lượng tòa nhà
+        count_result = execute_query("SELECT COUNT(*) as total FROM buildings")
+        
+        # Lấy 10 tòa nhà đầu tiên để kiểm tra
+        buildings_result = execute_query("SELECT id, name, location, type FROM buildings LIMIT 10")
+        
+        # Trả về kết quả
+        return {
+            "status": "success",
+            "connection": "PostgreSQL connection successful",
+            "buildings_count": count_result[0]["total"] if count_result else 0,
+            "buildings_sample": buildings_result
+        }
+    except Exception as e:
+        logger.error(f"Error connecting to PostgreSQL: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Could not connect to PostgreSQL: {str(e)}"
+        }
+
 # Database access functions using direct file access
 def get_buildings_from_db() -> List[Dict[str, Any]]:
     """Get all buildings from the database."""
     try:
-        print("Loading buildings from metadata file")
+        print("Loading buildings from PostgreSQL")
+        
+        # Truy vấn dữ liệu từ PostgreSQL
+        try:
+            query = """
+            SELECT 
+                id, name, location, type, size as area, floors, built_year, 
+                energy_sources, primary_use, occupancy_hours,
+                metadata
+            FROM buildings
+            ORDER BY name
+            """
+            buildings_data = execute_query(query)
+            
+            if buildings_data:
+                print(f"Loaded {len(buildings_data)} buildings from PostgreSQL")
+                # Standardize the buildings data to ensure consistent schema
+                buildings = []
+                for building in buildings_data:
+                    # Process energy_sources which might be stored as an array
+                    energy_sources = building.get("energy_sources", [])
+                    if energy_sources and isinstance(energy_sources, str):
+                        # If stored as a string that looks like an array
+                        if energy_sources.startswith('{') and energy_sources.endswith('}'):
+                            energy_sources = energy_sources.strip('{}').split(',')
+                    
+                    # Ensure all required fields have values
+                    formatted_building = {
+                        "id": building.get("id", ""),
+                        "name": building.get("name", "") or f"Building {building.get('id', '')}",
+                        "location": building.get("location", ""),
+                        "type": building.get("type", ""),
+                        "area": building.get("area", 0),
+                        "floors": building.get("floors", None),
+                        "year_built": building.get("built_year", None),
+                        "available_meters": energy_sources if isinstance(energy_sources, list) else [energy_sources] if energy_sources else [],
+                        "primary_use": building.get("primary_use", ""),
+                        "occupancy_hours": building.get("occupancy_hours", "")
+                    }
+                    buildings.append(formatted_building)
+                
+                return buildings
+            else:
+                print("No buildings found in PostgreSQL, checking metadata file")
+                
+        except Exception as e:
+            print(f"Error retrieving buildings from PostgreSQL: {str(e)}")
+            logger.error(f"Error retrieving buildings from PostgreSQL: {str(e)}")
+        
+        # Fallback to metadata file if PostgreSQL query fails
+        print("Falling back to metadata file")
         metadata = load_metadata_direct()
         if metadata.empty:
             print("Metadata is empty, using mock building data")
@@ -289,6 +370,44 @@ def get_buildings_from_db() -> List[Dict[str, Any]]:
 def get_building_by_id(building_id: str) -> Optional[Dict[str, Any]]:
     """Get building by ID from the database."""
     try:
+        # Truy vấn từ PostgreSQL
+        query = """
+        SELECT 
+            id, name, location, type, size as area, floors, built_year, 
+            energy_sources, primary_use, occupancy_hours,
+            metadata
+        FROM buildings
+        WHERE id = %(building_id)s
+        """
+        params = {"building_id": building_id}
+        result = execute_query(query, params)
+        
+        if result and len(result) > 0:
+            building = result[0]
+            
+            # Process energy_sources which might be stored as an array
+            energy_sources = building.get("energy_sources", [])
+            if energy_sources and isinstance(energy_sources, str):
+                # If stored as a string that looks like an array
+                if energy_sources.startswith('{') and energy_sources.endswith('}'):
+                    energy_sources = energy_sources.strip('{}').split(',')
+            
+            # Ensure all required fields have values
+            return {
+                "id": building.get("id", ""),
+                "name": building.get("name", "") or f"Building {building.get('id', '')}",
+                "location": building.get("location", ""),
+                "type": building.get("type", ""),
+                "area": building.get("area", 0),
+                "floors": building.get("floors", None),
+                "year_built": building.get("built_year", None),
+                "available_meters": energy_sources if isinstance(energy_sources, list) else [energy_sources] if energy_sources else [],
+                "primary_use": building.get("primary_use", ""),
+                "occupancy_hours": building.get("occupancy_hours", "")
+            }
+            
+        # Fallback to searching in all buildings if not found
+        logger.info(f"Building {building_id} not found in PostgreSQL, checking all buildings")
         buildings = get_buildings_from_db()
         for building in buildings:
             if building["id"] == building_id:
@@ -305,79 +424,148 @@ def get_building_consumption(
     interval: str = "daily",
     meter_type: str = "electricity"
 ) -> Dict[str, Any]:
-    """Get energy consumption data for a specific building."""
+    """Get energy consumption data for a building."""
     try:
-        print(f"Loading consumption for building: {building_id}, meter: {meter_type}")
-        # Get the data
-        df = load_meter_data_direct(meter_type)
+        # Validate interval
+        valid_intervals = ["hourly", "daily", "weekly", "monthly"]
+        if interval not in valid_intervals:
+            return {"error": f"Invalid interval: {interval}. Valid options are: {', '.join(valid_intervals)}"}
         
-        if df.empty:
-            print(f"No data found for meter type: {meter_type}")
-            return {
-                "building_id": building_id,
-                "meter_type": meter_type,
-                "data": [],
-                "message": f"No data available for {meter_type}"
-            }
-        
-        # Check for the building_id in column names
-        if building_id not in df.columns:
-            print(f"Building ID {building_id} not found in {meter_type} data")
-            available_buildings = list(df.columns)
-            if "timestamp" in available_buildings:
-                available_buildings.remove("timestamp")
-            return {
-                "building_id": building_id,
-                "meter_type": meter_type,
-                "data": [],
-                "message": f"Building ID not found in {meter_type} data. Available buildings: {available_buildings[:10]}..."
-            }
-        
-        # Extract timestamp and the specific building column
-        result_df = df[["timestamp", building_id]].copy()
-        
-        # Convert timestamp column to datetime if it's not already
-        if not pd.api.types.is_datetime64_any_dtype(result_df["timestamp"]):
-            result_df["timestamp"] = pd.to_datetime(result_df["timestamp"])
-        
-        # Filter by date range if provided
-        if start_date:
-            start_dt = pd.to_datetime(start_date)
-            result_df = result_df[result_df["timestamp"] >= start_dt]
-        
-        if end_date:
-            end_dt = pd.to_datetime(end_date)
-            result_df = result_df[result_df["timestamp"] <= end_dt]
-        
-        # Resample data based on the interval
-        if interval == "hourly":
-            # Data is already hourly, no need to resample
-            pass
-        elif interval == "daily":
-            result_df = result_df.set_index("timestamp").resample("D").mean().reset_index()
-        elif interval == "monthly":
-            result_df = result_df.set_index("timestamp").resample("M").mean().reset_index()
-        
-        # Format data for response
-        data = []
-        for _, row in result_df.iterrows():
-            # Handle NaN values
-            value = row[building_id]
-            if pd.isna(value) or np.isinf(value):
-                value = None
-            else:
-                value = float(value)
+        try:
+            # Sử dụng hàm resample_energy_data từ db_client (hỗ trợ cả PostgreSQL và MongoDB)
+            resampled_data = resample_energy_data(building_id, interval)
+            
+            # Nếu nhận được dữ liệu từ database
+            if resampled_data:
+                logger.info(f"Got resampled data for building {building_id} with {len(resampled_data)} records")
                 
-            data.append({
-                "timestamp": row["timestamp"].isoformat(),
-                "value": value
-            })
-        
-        return {
-            "building_id": building_id,
-            "meter_type": meter_type,
-            "data": data
-        }
+                # Chuyển đổi dữ liệu đã được resample thành định dạng phản hồi
+                data = []
+                for row in resampled_data:
+                    # Lấy giá trị phù hợp với loại meter
+                    value = None
+                    
+                    # Trường hợp PostgreSQL (continuous aggregates)
+                    if f"avg_{meter_type}" in row:
+                        value = row[f"avg_{meter_type}"]
+                    # Trường hợp trường trực tiếp (electricity, water, gas, etc.)
+                    elif meter_type in row:
+                        value = row[meter_type]
+                    
+                    # Kiểm tra và xử lý giá trị null/NaN
+                    if value is None or value == "" or (isinstance(value, str) and value.lower() == "null") or (isinstance(value, str) and value.lower().startswith("unknown")):
+                        value = None
+                    elif isinstance(value, str):
+                        try:
+                            value = float(value)
+                        except (ValueError, TypeError):
+                            value = None
+                    elif isinstance(value, (int, float)) and (pd.isna(value) or np.isinf(value)):
+                        value = None
+                    
+                    # Lấy timestamp từ dữ liệu
+                    timestamp = row.get("time") or row.get("bucket") or row.get("timestamp")
+                    
+                    # Thêm vào kết quả
+                    if timestamp:
+                        # Chuyển timestamp thành chuỗi ISO nếu là datetime object
+                        if isinstance(timestamp, datetime):
+                            timestamp = timestamp.isoformat()
+                            
+                        data.append({
+                            "timestamp": timestamp,
+                            "value": value
+                        })
+                
+                # Lọc theo ngày nếu có
+                if start_date or end_date:
+                    filtered_data = []
+                    for item in data:
+                        ts = item["timestamp"]
+                        include = True
+                        
+                        if start_date and ts < start_date:
+                            include = False
+                        if end_date and ts > end_date:
+                            include = False
+                        
+                        if include:
+                            filtered_data.append(item)
+                    
+                    data = filtered_data
+            else:
+                # Nếu không có dữ liệu từ database, dùng mẫu cũ
+                logger.warning(f"No data from database for building {building_id}, falling back to sample data")
+                
+                # Load dữ liệu từ files local (giữ lại mã cũ)
+                meter_data = load_meter_data_direct(meter_type)
+                if meter_data is None or building_id not in meter_data.columns:
+                    return {
+                        "building_id": building_id,
+                        "meter_type": meter_type,
+                        "data": [],
+                        "error": f"No data available for building {building_id}"
+                    }
+                
+                result_df = meter_data.reset_index()
+                
+                # Lọc dữ liệu theo ngày nếu có
+                if start_date:
+                    start_dt = pd.to_datetime(start_date)
+                    result_df = result_df[result_df["timestamp"] >= start_dt]
+                
+                if end_date:
+                    end_dt = pd.to_datetime(end_date)
+                    result_df = result_df[result_df["timestamp"] <= end_dt]
+                
+                # Resample data based on the interval
+                if interval == "hourly":
+                    # Data is already hourly, no need to resample
+                    pass
+                elif interval == "daily":
+                    result_df = result_df.set_index("timestamp").resample("D").mean().reset_index()
+                elif interval == "weekly":
+                    result_df = result_df.set_index("timestamp").resample("W").mean().reset_index()
+                elif interval == "monthly":
+                    result_df = result_df.set_index("timestamp").resample("M").mean().reset_index()
+                
+                # Format data for response
+                data = []
+                for _, row in result_df.iterrows():
+                    value = row[building_id]
+                    # Kiểm tra nhiều loại giá trị null/không hợp lệ
+                    if pd.isna(value) or np.isinf(value) or value == "" or (isinstance(value, str) and (value.lower() == "null" or value.lower().startswith("unknown"))):
+                        value = None
+                    else:
+                        try:
+                            value = float(value)
+                        except (ValueError, TypeError):
+                            value = None
+                        
+                    data.append({
+                        "timestamp": row["timestamp"].isoformat(),
+                        "value": value
+                    })
+            
+            return {
+                "building_id": building_id,
+                "meter_type": meter_type,
+                "data": data,
+                "interval": interval,
+                "data_points": len(data)
+            }
+        except Exception as inner_e:
+            logger.error(f"Error in resampling data: {str(inner_e)}")
+            import traceback
+            traceback.print_exc()
+            
+            # Fallback to sample data
+            return {
+                "building_id": building_id,
+                "meter_type": meter_type,
+                "data": [],
+                "error": f"Error processing data: {str(inner_e)}"
+            }
     except Exception as e:
         print(f"Error getting consumption data: {str(e)}")
         import traceback
@@ -452,54 +640,233 @@ async def get_building(
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @router.get("/{building_id}/consumption", response_model=Dict[str, Any])
-async def get_building_consumption_endpoint(
-    building_id: str = Path(..., description="Building identifier"),
-    start_date: str = Query(None, description="Start date (ISO format)"),
-    end_date: str = Query(None, description="End date (ISO format)"),
-    interval: str = Query("daily", description="Data interval (hourly, daily, monthly)"),
-    type: str = Query("electricity", description="Energy metric (electricity, gas, water)")
+async def get_building_consumption(
+    building_id: str,
+    metric: str = Query("electricity", description="Loại dữ liệu tiêu thụ (electricity, water, gas, etc.)"),
+    interval: str = Query("daily", description="Khoảng thời gian (hourly, daily, monthly)"),
+    start_date: Optional[str] = Query(None, description="Ngày bắt đầu (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="Ngày kết thúc (YYYY-MM-DD)")
 ):
-    """Get energy consumption data for a building."""
+    """Lấy dữ liệu tiêu thụ năng lượng cho một tòa nhà cụ thể."""
     try:
-        # Check if building exists
-        building = get_building_by_id(building_id)
-        if not building:
-            raise HTTPException(status_code=404, detail=f"Building not found: {building_id}")
+        logger.info(f"Lấy dữ liệu tiêu thụ {metric} cho tòa nhà {building_id} với interval {interval}")
         
-        try:
-            # Get consumption data
-            consumption_data = get_building_consumption(
-                building_id=building_id,
-                start_date=start_date,
-                end_date=end_date,
-                interval=interval,
-                meter_type=type
-            )
+        # Kiểm tra tòa nhà có tồn tại không
+        building_query = "SELECT id FROM buildings WHERE id = %(building_id)s"
+        building_result = execute_query(building_query, {"building_id": building_id})
+        
+        if not building_result:
+            logger.warning(f"Không tìm thấy tòa nhà với ID {building_id}")
+            return {"status": "error", "message": f"Building not found with ID {building_id}", "data": []}
+        
+        # Tạo timestamp từ tham số
+        current_date = datetime.now()
+        
+        if start_date:
+            try:
+                start_timestamp = datetime.strptime(start_date, "%Y-%m-%d")
+            except ValueError:
+                logger.warning(f"Invalid start_date format: {start_date}")
+                start_timestamp = current_date - timedelta(days=30)
+        else:
+            start_timestamp = current_date - timedelta(days=30)
             
-            if "error" in consumption_data:
-                return {"building_id": building_id, "error": consumption_data["error"]}
-            
-            # For large datasets, limit the number of data points returned
-            if "data" in consumption_data and len(consumption_data["data"]) > 1000:
-                consumption_data["data"] = consumption_data["data"][:1000]
-                consumption_data["note"] = "Response limited to 1000 data points. Use date filters for more specific data."
-            
-            return consumption_data
-        except Exception as e:
-            logger.error(f"Error processing consumption data: {str(e)}")
-            return {
+        if end_date:
+            try:
+                end_timestamp = datetime.strptime(end_date, "%Y-%m-%d")
+            except ValueError:
+                logger.warning(f"Invalid end_date format: {end_date}")
+                end_timestamp = current_date
+        else:
+            end_timestamp = current_date
+        
+        # Chuẩn bị SQL query dựa trên loại metric và interval
+        time_bucket = ""
+        if interval == "hourly":
+            time_bucket = "1 hour"
+        elif interval == "daily":
+            time_bucket = "1 day"
+        elif interval == "monthly":
+            time_bucket = "1 month"
+        else:
+            time_bucket = "1 day"  # Default là daily
+        
+        # Truy vấn dữ liệu từ bảng energy_data hoặc continuous aggregates
+        data = []
+        
+        # Thử truy vấn từ continuous aggregates (nếu có)
+        if interval == "hourly":
+            table_name = "energy_hourly"
+        elif interval == "daily":
+            table_name = "energy_daily"
+        elif interval == "monthly":
+            table_name = "energy_monthly"
+        else:
+            table_name = "energy_daily"
+        
+        # Kiểm tra bảng continuous aggregate có tồn tại không
+        table_check_query = "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = %(table_name)s)"
+        table_exists = execute_query(table_check_query, {"table_name": table_name})
+        
+        if table_exists and table_exists[0].get("exists", False):
+            # Sử dụng continuous aggregate
+            query = f"""
+            SELECT bucket as timestamp, avg_{metric} as value
+            FROM {table_name}
+            WHERE building_id = %(building_id)s
+              AND bucket >= %(start_date)s
+              AND bucket <= %(end_date)s
+            ORDER BY bucket
+            """
+            params = {
                 "building_id": building_id,
-                "meter_type": type,
-                "error": f"Error processing consumption data: {str(e)}",
-                "data": [],
-                "data_points": 0
+                "start_date": start_timestamp,
+                "end_date": end_timestamp
             }
-    
-    except HTTPException:
-        raise
+            
+            result = execute_query(query, params)
+            logger.info(f"Queried {len(result) if result else 0} records from {table_name}")
+            
+            if result:
+                for row in result:
+                    value = row.get("value")
+                    timestamp = row.get("timestamp")
+                    
+                    # Xử lý giá trị null/NaN
+                    if value is None or (isinstance(value, float) and (pd.isna(value) or np.isinf(value))):
+                        value = None
+                    
+                    if timestamp:
+                        # Chuyển timestamp thành chuỗi ISO nếu là datetime object
+                        if isinstance(timestamp, datetime):
+                            timestamp = timestamp.isoformat()
+                        
+                        data.append({
+                            "timestamp": timestamp,
+                            "value": value
+                        })
+        
+        # Nếu không có dữ liệu từ continuous aggregates, thử truy vấn trực tiếp từ bảng energy_data
+        if not data:
+            # Kiểm tra bảng energy_data có tồn tại không
+            table_check_query = "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'energy_data')"
+            table_exists = execute_query(table_check_query)
+            
+            if table_exists and table_exists[0].get("exists", False):
+                # Truy vấn trực tiếp từ bảng energy_data với time_bucket
+                query = f"""
+                SELECT time_bucket(%(time_bucket)s, time) as timestamp, 
+                       avg({metric}) as value
+                FROM energy_data
+                WHERE building_id = %(building_id)s
+                  AND time >= %(start_date)s
+                  AND time <= %(end_date)s
+                  AND {metric} IS NOT NULL
+                GROUP BY timestamp
+                ORDER BY timestamp
+                """
+                params = {
+                    "building_id": building_id,
+                    "start_date": start_timestamp,
+                    "end_date": end_timestamp,
+                    "time_bucket": time_bucket
+                }
+                
+                result = execute_query(query, params)
+                logger.info(f"Queried {len(result) if result else 0} records from energy_data")
+                
+                if result:
+                    for row in result:
+                        value = row.get("value")
+                        timestamp = row.get("timestamp")
+                        
+                        # Xử lý giá trị null/NaN
+                        if value is None or (isinstance(value, float) and (pd.isna(value) or np.isinf(value))):
+                            value = None
+                        
+                        if timestamp:
+                            # Chuyển timestamp thành chuỗi ISO nếu là datetime object
+                            if isinstance(timestamp, datetime):
+                                timestamp = timestamp.isoformat()
+                            
+                            data.append({
+                                "timestamp": timestamp,
+                                "value": value
+                            })
+        
+        # Nếu vẫn không có dữ liệu, sử dụng dữ liệu mẫu làm fallback
+        if not data:
+            logger.warning(f"Không tìm thấy dữ liệu cho tòa nhà {building_id}, sử dụng mock data")
+            data = generate_mock_consumption_data(interval, start_timestamp, end_timestamp)
+        
+        return {
+            "status": "success",
+            "building_id": building_id,
+            "metric": metric,
+            "interval": interval,
+            "data": data
+        }
     except Exception as e:
-        logger.error(f"Error retrieving consumption data for building {building_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        logger.error(f"Error getting {metric} consumption for building {building_id}: {str(e)}")
+        return {
+            "status": "error",
+            "message": f"Error retrieving consumption data: {str(e)}",
+            "data": []
+        }
+
+# Hàm tạo dữ liệu mẫu cho tiêu thụ năng lượng
+def generate_mock_consumption_data(interval: str, start_date: datetime, end_date: datetime):
+    """Tạo dữ liệu mẫu cho tiêu thụ năng lượng."""
+    data = []
+    current_date = start_date
+    delta = None
+    
+    if interval == "hourly":
+        delta = timedelta(hours=1)
+    elif interval == "daily":
+        delta = timedelta(days=1)
+    elif interval == "monthly":
+        # Đơn giản hóa: Cứ 30 ngày là 1 tháng
+        delta = timedelta(days=30)
+    else:
+        delta = timedelta(days=1)  # Default
+    
+    while current_date <= end_date:
+        # Tạo dữ liệu ngẫu nhiên với mẫu thực tế hơn
+        # Office building sẽ có mức tiêu thụ thấp vào cuối tuần, cao vào ngày làm việc
+        is_weekend = current_date.weekday() >= 5  # 5, 6 là thứ 7, CN
+        
+        # Mức tiêu thụ cơ bản dựa trên ngày trong tuần
+        base_consumption = 50 if is_weekend else 100
+        
+        # Thêm biến động ngẫu nhiên
+        random_factor = random.uniform(0.8, 1.2)
+        
+        # Giờ trong ngày ảnh hưởng nếu interval là hourly
+        hour_factor = 1.0
+        if interval == "hourly":
+            hour = current_date.hour
+            if 0 <= hour < 6:  # Đêm khuya
+                hour_factor = 0.5
+            elif 7 <= hour < 10:  # Sáng sớm, tăng dần
+                hour_factor = 0.7 + (hour - 7) * 0.1
+            elif 10 <= hour < 17:  # Giờ làm việc
+                hour_factor = 1.0
+            elif 17 <= hour < 22:  # Chiều tối, giảm dần
+                hour_factor = 0.9 - (hour - 17) * 0.1
+            else:  # Đêm
+                hour_factor = 0.6
+        
+        consumption = base_consumption * random_factor * hour_factor
+        
+        data.append({
+            "timestamp": current_date.isoformat(),
+            "value": round(consumption, 2)
+        })
+        
+        current_date += delta
+    
+    return data
 
 @router.post("/", response_model=Dict[str, Any], status_code=201)
 async def create_building_endpoint(

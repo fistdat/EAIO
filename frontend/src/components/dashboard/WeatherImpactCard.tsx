@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { ReactElement } from 'react';
 
 interface WeatherImpactCardProps {
   temperature: number;
@@ -26,7 +26,7 @@ const WeatherImpactCard: React.FC<WeatherImpactCardProps> = ({
     }
   };
   
-  const getWeatherIcon = (temp: number): JSX.Element => {
+  const getWeatherIcon = (temp: number): ReactElement => {
     if (temp >= 80) {
       return (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">

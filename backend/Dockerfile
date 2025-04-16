@@ -1,32 +1,26 @@
-FROM python:3.9-slim
+FROM python:3.10-slim
 
 WORKDIR /app
 
-# Cài đặt các dependency cho hệ thống
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
     build-essential \
-    && apt-get clean \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements trước để tận dụng caching của Docker
+# Copy requirements and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install psycopg2-binary>=2.9.9
 
-# Copy toàn bộ ứng dụng
+# Copy the rest of the application
 COPY . .
 
-# Cài đặt package cục bộ
-RUN pip install -e .
+# Cấu hình PYTHONPATH để hỗ trợ cấu trúc module
+ENV PYTHONPATH="${PYTHONPATH}:/app"
 
-# Thiết lập PYTHONPATH
-ENV PYTHONPATH=/app:$PYTHONPATH
-
-# Tạo thư mục logs và data (nếu chưa có)
-RUN mkdir -p /app/data /app/logs
-
-# Port để FastAPI lắng nghe
+# Expose the API port
 EXPOSE 8000
 
-# Khởi động ứng dụng (sử dụng main.py ở thư mục gốc)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"] 
+# Command to run the application - run directly without reload for better error visibility
+CMD ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "debug"] 

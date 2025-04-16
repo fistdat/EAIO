@@ -10,6 +10,7 @@ import shutil
 
 from agents.base_agent import BaseAgent
 from utils.logging_utils import get_logger
+from config import config
 
 # Get logger
 logger = get_logger('eaio.agent.memory')
@@ -33,7 +34,7 @@ class MemoryAgent(BaseAgent):
         temperature: float = 0.3,
         max_tokens: Optional[int] = 2000,
         api_key: Optional[str] = None,
-        memory_dir: str = "memory_storage"
+        memory_dir: Optional[str] = None
     ):
         """
         Initialize the Memory Agent.
@@ -81,7 +82,7 @@ class MemoryAgent(BaseAgent):
         )
         
         # Set up memory storage
-        self.memory_dir = os.path.join(os.getcwd(), memory_dir)
+        self.memory_dir = memory_dir or config.MEMORY_DIR
         self._ensure_memory_directories()
         
         logger.info(f"Initialized {name} with memory storage at {self.memory_dir}")

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { analysisApi, buildingApi } from '../services/api';
+import React, { useState, useEffect, useMemo } from 'react';
+import { analysisApi, buildingApi } from '../services/api/exports';
 import BuildingSelector from '../components/common/BuildingSelector';
-import { Bar, Line } from 'react-chartjs-2';
+import { Bar, Line, Scatter } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,7 +12,8 @@ import {
   Title,
   Tooltip,
   Legend,
-  Filler
+  Filler,
+  ChartData
 } from 'chart.js';
 
 // Register Chart.js components
@@ -27,6 +28,27 @@ ChartJS.register(
   Legend,
   Filler
 );
+
+// Thêm hàm helper thiếu
+// Hàm này chuyển đổi chỉ số thành tên ngày trong tuần
+const getDayName = (index: number): string => {
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  return days[index % 7];
+};
+
+// Hàm này chuyển đổi mã metric thành tên hiển thị
+const getMetricDisplayName = (metric: string): string => {
+  switch (metric) {
+    case 'electricity':
+      return 'Electricity';
+    case 'water':
+      return 'Water';
+    case 'gas':
+      return 'Gas';
+    default:
+      return 'Energy';
+  }
+};
 
 // Define interface Building giống như trong Dashboard.tsx
 interface Building {
@@ -71,8 +93,8 @@ const Analytics: React.FC = () => {
           const formattedBuildings: Building[] = data.map(building => ({
             ...building,
             // Đảm bảo location là string
-            location: typeof building.location === 'object' ? 
-              (building.location?.city ? `${building.location.city}, ${building.location.country || ''}` : '') : 
+            location: typeof building.location === 'object' && building.location !== null ? 
+              ((building.location as any)?.city ? `${(building.location as any).city}, ${(building.location as any).country || ''}` : '') : 
               String(building.location || '')
           }));
           
@@ -122,7 +144,7 @@ const Analytics: React.FC = () => {
         dateRange.end
       ).catch(err => {
         console.error('Error fetching patterns:', err);
-        return { hourly_patterns: {}, weekly_patterns: {}, seasonal_patterns: {}, message: 'Development feature' };
+        return { hourly_patterns: {}, daily_patterns: {}, seasonal_patterns: {}, message: 'Development feature' };
       });
 
       // Fetch weather correlation
@@ -133,13 +155,12 @@ const Analytics: React.FC = () => {
         dateRange.end
       ).catch(err => {
         console.error('Error fetching weather correlation:', err);
-        return { correlations: {}, message: 'Development feature' };
+        return { correlations: {}, data: [], message: 'Development feature' };
       });
 
       // Fetch anomalies
       const anomaliesPromise = analysisApi.getAnomalies(
         selectedBuilding.id,
-        selectedMetric,
         dateRange.start,
         dateRange.end
       ).catch(err => {
@@ -179,10 +200,16 @@ const Analytics: React.FC = () => {
         // For demonstration purposes, set mock data when API fails
         setPatterns({
           hourly_patterns: generateMockHourlyPatterns(),
-          weekly_patterns: generateMockWeeklyPatterns(),
-          seasonal_patterns: {}
+          daily_patterns: generateMockWeeklyPatterns(),
+          seasonal_patterns: {},
+          total_consumption: selectedMetric === 'electricity' ? 9500 : selectedMetric === 'water' ? 3800 : 2200,
+          avg_daily_consumption: selectedMetric === 'electricity' ? 316.7 : selectedMetric === 'water' ? 126.7 : 73.3
         });
-        setWeatherCorrelation({ correlations: {} });
+        setWeatherCorrelation({ 
+          correlations: { temperature: 0.75 },
+          data: generateMockWeatherData(),
+          correlation_coefficient: 0.75
+        });
         setAnomalies([]);
         setError('The Analytics API is under development. Showing sample data for demonstration purposes.');
       }
@@ -233,6 +260,35 @@ const Analytics: React.FC = () => {
     return patterns;
   };
 
+  // Generate mock weather data points
+  const generateMockWeatherData = () => {
+    const data = [];
+    const tempMin = selectedMetric === 'gas' ? -5 : 5;
+    const tempMax = selectedMetric === 'gas' ? 25 : 40;
+    
+    for (let i = 0; i < 30; i++) {
+      const temp = tempMin + Math.random() * (tempMax - tempMin);
+      let consumption;
+      
+      if (selectedMetric === 'electricity') {
+        // Higher at higher temps
+        consumption = 50 + temp * 2 + (Math.random() * 30 - 15);
+      } else if (selectedMetric === 'gas') {
+        // Higher at lower temps
+        consumption = 150 - temp * 3 + (Math.random() * 30 - 15);
+      } else {
+        consumption = 80 + (Math.random() * 40 - 20);
+      }
+      
+      data.push({
+        temperature: Math.round(temp),
+        consumption: Math.round(consumption)
+      });
+    }
+    
+    return data.sort((a, b) => a.temperature - b.temperature);
+  };
+
   // Handle metric change
   const handleMetricChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedMetric(e.target.value);
@@ -243,6 +299,40 @@ const Analytics: React.FC = () => {
     const { name, value } = e.target;
     setDateRange(prev => ({ ...prev, [name]: value }));
   };
+
+  // Define chart data from patterns
+  const dailyPatternsData = useMemo(() => {
+    if (!patterns?.daily_patterns) return null;
+    
+    return {
+      labels: Object.keys(patterns.daily_patterns).map((_, i: number) => getDayName(i)),
+      datasets: [
+        {
+          label: `Average Daily ${getMetricDisplayName(selectedMetric)} Consumption`,
+          data: Object.values(patterns.daily_patterns),
+          backgroundColor: 'rgba(53, 162, 235, 0.5)',
+        },
+      ],
+    };
+  }, [patterns?.daily_patterns, selectedMetric]);
+  
+  // Define weekly patterns chart data
+  const weeklyPatternsData = useMemo((): any | null => {
+    if (!patterns?.weekly_patterns) return null;
+    
+    return {
+      labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+      datasets: [
+        {
+          label: `Average Weekly ${getMetricDisplayName(selectedMetric)} Consumption`,
+          data: Object.values(patterns.weekly_patterns) as number[],
+          backgroundColor: 'rgba(75, 192, 192, 0.5)',
+        },
+      ],
+    };
+  }, [patterns?.weekly_patterns, selectedMetric]);
+  
+  // Define helper functions
 
   // Loading state
   if (loading && !selectedBuilding) {
@@ -280,7 +370,11 @@ const Analytics: React.FC = () => {
     datasets: [
       {
         label: 'Average Daily Consumption',
-        data: patterns?.daily_patterns ? Object.values(patterns.daily_patterns) : Array(7).fill(0),
+        data: patterns?.daily_patterns ? 
+          ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => 
+            patterns.daily_patterns[day] || 0
+          ) : 
+          Array(7).fill(0),
         backgroundColor: 'rgba(54, 162, 235, 0.5)',
         borderColor: 'rgba(54, 162, 235, 1)',
         borderWidth: 1
@@ -290,11 +384,15 @@ const Analytics: React.FC = () => {
 
   // Prepare data for weather correlation chart
   const weatherCorrelationData = {
-    labels: weatherCorrelation?.data ? weatherCorrelation.data.map((d: any) => d.temperature) : [],
     datasets: [
       {
         label: 'Consumption vs Temperature',
-        data: weatherCorrelation?.data ? weatherCorrelation.data.map((d: any) => d.consumption) : [],
+        data: weatherCorrelation?.data ? 
+          weatherCorrelation.data.map((d: {temperature: number, consumption: number}) => ({
+            x: d.temperature,
+            y: d.consumption
+          })) : 
+          [],
         backgroundColor: 'rgba(255, 99, 132, 0.5)',
         borderColor: 'rgba(255, 99, 132, 1)',
         pointRadius: 5,
@@ -319,7 +417,7 @@ const Analytics: React.FC = () => {
           <BuildingSelector 
             buildings={buildings} 
             selectedBuilding={selectedBuilding as Building} 
-            onChange={setSelectedBuilding} 
+            onBuildingChange={setSelectedBuilding} 
           />
         </div>
       </div>
@@ -443,9 +541,9 @@ const Analytics: React.FC = () => {
           </div>
         </div>
         <div className="card p-6">
-          <h3 className="font-semibold text-lg mb-4">Daily Consumption Pattern</h3>
-          <div className="h-64">
-            {patterns?.daily_patterns ? (
+          <h3 className="font-semibold text-lg mb-4">Average Daily Consumption</h3>
+          {patterns?.daily_patterns ? (
+            <div className="h-80">
               <Bar 
                 data={dailyPatternData}
                 options={{
@@ -455,9 +553,15 @@ const Analytics: React.FC = () => {
                     legend: {
                       position: 'top',
                     },
-                    title: {
-                      display: false,
-                    },
+                    tooltip: {
+                      callbacks: {
+                        label: function(context: any) {
+                          return `${context.parsed.y.toFixed(2)} ${
+                            selectedMetric === 'electricity' ? 'kWh' : selectedMetric === 'water' ? 'gal' : 'm³'
+                          }`;
+                        }
+                      }
+                    }
                   },
                   scales: {
                     y: {
@@ -470,13 +574,56 @@ const Analytics: React.FC = () => {
                   }
                 }}
               />
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <p className="text-gray-500">No daily pattern data available</p>
-              </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="flex h-64 items-center justify-center">
+              <p className="text-gray-500">No daily pattern data available</p>
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* Weekly Patterns */}
+      <div className="card p-6">
+        <h3 className="font-semibold text-lg mb-4">Average Weekly Consumption</h3>
+        {patterns?.weekly_patterns ? (
+          <div className="h-80">
+            <Bar 
+              data={weeklyPatternsData as any}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    position: 'top',
+                  },
+                  tooltip: {
+                    callbacks: {
+                      label: function(context: any) {
+                        return `${context.parsed.y.toFixed(2)} ${
+                          selectedMetric === 'electricity' ? 'kWh' : selectedMetric === 'water' ? 'gal' : 'm³'
+                        }`;
+                      }
+                    }
+                  }
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    title: {
+                      display: true,
+                      text: selectedMetric === 'electricity' ? 'kWh' : selectedMetric === 'water' ? 'gal' : 'm³'
+                    }
+                  }
+                }
+              }}
+            />
+          </div>
+        ) : (
+          <div className="flex h-64 items-center justify-center">
+            <p className="text-gray-500">No weekly pattern data available</p>
+          </div>
+        )}
       </div>
 
       {/* Weather Correlation */}
@@ -499,54 +646,76 @@ const Analytics: React.FC = () => {
                         : 'Weak correlation'}
                   </p>
                 </div>
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-green-800">Temperature Sensitivity</h4>
-                  <p className="text-2xl font-bold text-green-600">
-                    {weatherCorrelation.temperature_sensitivity ? weatherCorrelation.temperature_sensitivity.toFixed(2) : 'N/A'}
-                    <span className="text-sm font-normal ml-1">
-                      {selectedMetric === 'electricity' ? 'kWh/°F' : selectedMetric === 'water' ? 'gal/°F' : 'm³/°F'}
-                    </span>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-blue-800">Relationship Type</h4>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {(weatherCorrelation.correlation_coefficient || 0) > 0 
+                      ? 'Positive' 
+                      : (weatherCorrelation.correlation_coefficient || 0) < 0 
+                        ? 'Negative' 
+                        : 'Neutral'}
                   </p>
-                  <p className="text-sm text-green-700">Change in usage per degree</p>
+                  <p className="text-sm text-blue-700">
+                    {(weatherCorrelation.correlation_coefficient || 0) > 0 
+                      ? 'Consumption increases with temperature' 
+                      : (weatherCorrelation.correlation_coefficient || 0) < 0 
+                        ? 'Consumption decreases with temperature' 
+                        : 'No clear relationship'}
+                  </p>
                 </div>
-                <div className="bg-purple-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-purple-800">Optimal Temperature</h4>
-                  <p className="text-2xl font-bold text-purple-600">
-                    {weatherCorrelation.optimal_temperature ? weatherCorrelation.optimal_temperature.toFixed(1) : 'N/A'}
-                    <span className="text-sm font-normal ml-1">°F</span>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-blue-800">Suggested Action</h4>
+                  <p className="text-xl font-bold text-blue-600">
+                    {Math.abs(weatherCorrelation.correlation_coefficient || 0) > 0.7 
+                      ? 'Optimize for weather impact' 
+                      : 'Monitor relationship'}
                   </p>
-                  <p className="text-sm text-purple-700">Most efficient temperature</p>
+                  <p className="text-sm text-blue-700">
+                    {Math.abs(weatherCorrelation.correlation_coefficient || 0) > 0.7 
+                      ? 'Consider weather-responsive controls' 
+                      : 'Continue collecting data'}
+                  </p>
                 </div>
               </div>
-              <Line 
-                data={weatherCorrelationData}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      position: 'top',
-                    },
-                    title: {
-                      display: false,
-                    },
-                  },
-                  scales: {
-                    y: {
-                      title: {
+              <div className="h-64">
+                <Scatter 
+                  data={weatherCorrelationData}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
                         display: true,
-                        text: selectedMetric === 'electricity' ? 'kWh' : selectedMetric === 'water' ? 'gal' : 'm³'
+                        position: 'top',
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: function(context: any) {
+                            return `Temperature: ${context.parsed.x}°C, Consumption: ${context.parsed.y} ${
+                              selectedMetric === 'electricity' ? 'kWh' : selectedMetric === 'water' ? 'gal' : 'm³'
+                            }`;
+                          }
+                        }
                       }
                     },
-                    x: {
-                      title: {
-                        display: true,
-                        text: 'Temperature (°F)'
+                    scales: {
+                      x: {
+                        title: {
+                          display: true,
+                          text: 'Temperature (°C)'
+                        }
+                      },
+                      y: {
+                        beginAtZero: true,
+                        title: {
+                          display: true,
+                          text: selectedMetric === 'electricity' ? 'kWh' : selectedMetric === 'water' ? 'gal' : 'm³'
+                        }
                       }
                     }
-                  }
-                }}
-              />
+                  }}
+                />
+              </div>
             </>
           ) : (
             <div className="flex h-full items-center justify-center">
@@ -575,10 +744,12 @@ const Analytics: React.FC = () => {
                 {anomalies.map((anomaly, index) => (
                   <tr key={index}>
                     <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm text-gray-500 sm:pl-6">{anomaly.timestamp}</td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{anomaly.expected_value.toLocaleString()}</td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{anomaly.actual_value.toLocaleString()}</td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{anomaly.expected_value ? anomaly.expected_value.toLocaleString() : 'N/A'}</td>
+                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{anomaly.actual_value ? anomaly.actual_value.toLocaleString() : 'N/A'}</td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                      {((anomaly.actual_value - anomaly.expected_value) / anomaly.expected_value * 100).toFixed(1)}%
+                      {(anomaly.expected_value && anomaly.actual_value) ? 
+                        ((anomaly.actual_value - anomaly.expected_value) / anomaly.expected_value * 100).toFixed(1) + '%' : 
+                        'N/A'}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -586,7 +757,7 @@ const Analytics: React.FC = () => {
                         anomaly.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' : 
                         'bg-green-100 text-green-800'
                       }`}>
-                        {anomaly.severity.charAt(0).toUpperCase() + anomaly.severity.slice(1)}
+                        {anomaly.severity ? (anomaly.severity.charAt(0).toUpperCase() + anomaly.severity.slice(1)) : 'Unknown'}
                       </span>
                     </td>
                   </tr>

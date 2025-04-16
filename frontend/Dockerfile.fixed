@@ -1,0 +1,21 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies without running ESLint
+ENV DISABLE_ESLINT_PLUGIN=true
+
+# Install with --legacy-peer-deps to avoid dependency issues
+RUN npm install --legacy-peer-deps
+
+# Copy all files
+COPY . .
+
+# Expose the port
+EXPOSE 3000
+
+# Start the app
+CMD ["npm", "start"] 

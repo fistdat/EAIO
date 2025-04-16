@@ -238,3 +238,167 @@ class TestDataAnalysisAgent:
         assert result["efficiency_ranking"]["overall"] == "building_b"
         assert "recommendations" in result
         assert len(result["recommendations"]) == 2 
+        
+    @patch("agents.data_analysis.data_analysis_agent.pd.read_csv")
+    @patch("agents.data_analysis.data_analysis_agent.Prophet")
+    def test_forecast_consumption_prophet(self, mock_prophet, mock_read_csv):
+        """Test forecast_consumption method with Prophet model."""
+        # Mock dữ liệu đầu vào
+        mock_read_csv.return_value = self.sample_df.reset_index()
+        
+        # Mock Prophet model
+        mock_prophet_instance = MagicMock()
+        mock_prophet_instance.seasonalities = {"daily": None, "weekly": None}
+        mock_prophet_instance.make_future_dataframe.return_value = pd.DataFrame({
+            'ds': pd.date_range(start='2023-01-03', periods=24, freq='H')
+        })
+        mock_prophet_instance.predict.return_value = pd.DataFrame({
+            'ds': pd.date_range(start='2023-01-03', periods=24, freq='H'),
+            'yhat': [120 + i % 20 for i in range(24)],
+            'yhat_lower': [110 + i % 20 for i in range(24)],
+            'yhat_upper': [130 + i % 20 for i in range(24)]
+        })
+        mock_prophet.return_value = mock_prophet_instance
+        
+        # Gọi phương thức cần test
+        result = self.agent.forecast_consumption(
+            building_id=1,
+            data_path="dummy/path.csv",
+            start_date="2023-01-01",
+            end_date="2023-01-03",
+            energy_type="electricity",
+            forecast_horizon=24,
+            model_type="prophet",
+            include_weather=True
+        )
+        
+        # Kiểm tra kết quả
+        assert "forecast" in result
+        assert "model_type" in result
+        assert result["model_type"] == "prophet"
+        assert "period_start" in result
+        assert "period_end" in result
+        assert len(result["forecast"]) == 24
+        
+        # Verify các phương thức của Prophet được gọi
+        mock_prophet.assert_called_once()
+        mock_prophet_instance.fit.assert_called_once()
+        mock_prophet_instance.make_future_dataframe.assert_called_once()
+        mock_prophet_instance.predict.assert_called_once()
+    
+    @patch("agents.data_analysis.data_analysis_agent.pd.read_csv")
+    @patch("agents.data_analysis.data_analysis_agent.torch")
+    @patch("agents.data_analysis.data_analysis_agent.TimeSeriesTransformerConfig")
+    @patch("agents.data_analysis.data_analysis_agent.AutoformerForPrediction")
+    def test_forecast_consumption_autoformer(self, mock_autoformer, mock_config, mock_torch, mock_read_csv):
+        """Test forecast_consumption method with Autoformer model."""
+        # Mock dữ liệu đầu vào
+        mock_read_csv.return_value = self.sample_df.reset_index()
+        
+        # Mock các module và lớp cần thiết
+        mock_config_instance = MagicMock()
+        mock_config.return_value = mock_config_instance
+        
+        mock_model = MagicMock()
+        mock_autoformer.return_value = mock_model
+        
+        # Mock output từ model
+        mock_outputs = MagicMock()
+        mock_sequences = MagicMock()
+        mock_sequences.mean.return_value = MagicMock()
+        mock_sequences.mean.return_value.squeeze.return_value = MagicMock()
+        mock_sequences.mean.return_value.squeeze.return_value.numpy.return_value = [120 + i % 20 for i in range(24)]
+        mock_outputs.sequences = mock_sequences
+        mock_model.return_value = mock_outputs
+        
+        # Mock torch.no_grad context
+        mock_torch.no_grad.return_value.__enter__.return_value = None
+        mock_torch.tensor.return_value = MagicMock()
+        
+        # Gọi phương thức cần test
+        result = self.agent.forecast_consumption(
+            building_id=1,
+            data_path="dummy/path.csv",
+            start_date="2023-01-01",
+            end_date="2023-01-03",
+            energy_type="electricity",
+            forecast_horizon=24,
+            model_type="autoformer",
+            include_weather=False
+        )
+        
+        # Kiểm tra kết quả
+        assert "forecast" in result
+        assert "model_type" in result
+        assert result["model_type"] == "autoformer"
+        assert "period_start" in result
+        assert "period_end" in result
+        assert "model_components" in result
+        assert result["model_components"]["architecture"] == "autoformer"
+    
+    @patch("agents.data_analysis.data_analysis_agent.pd.read_csv")
+    @patch("agents.data_analysis.data_analysis_agent.torch")
+    @patch("agents.data_analysis.data_analysis_agent.TimeSeriesTransformerConfig")
+    @patch("agents.data_analysis.data_analysis_agent.InformerForPrediction")
+    def test_forecast_consumption_informer(self, mock_informer, mock_config, mock_torch, mock_read_csv):
+        """Test forecast_consumption method with Informer model."""
+        # Mock dữ liệu đầu vào
+        mock_read_csv.return_value = self.sample_df.reset_index()
+        
+        # Mock các module và lớp cần thiết
+        mock_config_instance = MagicMock()
+        mock_config.return_value = mock_config_instance
+        
+        mock_model = MagicMock()
+        mock_informer.return_value = mock_model
+        
+        # Mock output từ model
+        mock_outputs = MagicMock()
+        mock_sequences = MagicMock()
+        mock_sequences.mean.return_value = MagicMock()
+        mock_sequences.mean.return_value.squeeze.return_value = MagicMock()
+        mock_sequences.mean.return_value.squeeze.return_value.numpy.return_value = [120 + i % 20 for i in range(24)]
+        mock_outputs.sequences = mock_sequences
+        mock_model.return_value = mock_outputs
+        
+        # Mock torch.no_grad context
+        mock_torch.no_grad.return_value.__enter__.return_value = None
+        mock_torch.tensor.return_value = MagicMock()
+        
+        # Gọi phương thức cần test
+        result = self.agent.forecast_consumption(
+            building_id=1,
+            data_path="dummy/path.csv",
+            start_date="2023-01-01",
+            end_date="2023-01-03",
+            energy_type="electricity",
+            forecast_horizon=24,
+            model_type="informer",
+            include_weather=False
+        )
+        
+        # Kiểm tra kết quả
+        assert "forecast" in result
+        assert "model_type" in result
+        assert result["model_type"] == "informer"
+        assert "period_start" in result
+        assert "period_end" in result
+        assert "model_components" in result
+        assert result["model_components"]["architecture"] == "informer"
+        
+    @patch("agents.data_analysis.data_analysis_agent.pd.read_csv")
+    def test_forecast_consumption_invalid_model(self, mock_read_csv):
+        """Test forecast_consumption method with invalid model type."""
+        # Mock dữ liệu đầu vào
+        mock_read_csv.return_value = self.sample_df.reset_index()
+        
+        # Kiểm tra xem có raise ValueError khi model type không hợp lệ
+        with pytest.raises(ValueError) as excinfo:
+            self.agent.forecast_consumption(
+                building_id=1,
+                data_path="dummy/path.csv",
+                model_type="invalid_model"
+            )
+        
+        # Kiểm tra thông báo lỗi
+        assert "Unsupported model type" in str(excinfo.value) 

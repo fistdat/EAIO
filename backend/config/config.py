@@ -1,9 +1,18 @@
+"""
+Configuration settings for the Energy AI Optimizer.
+"""
 import os
-from dotenv import load_dotenv
 from typing import Dict, Any, Optional
+import json
+from pathlib import Path
+import logging
 
-# Load environment variables
-load_dotenv()
+# Try to load dotenv if available
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # Environment configuration
 IS_DOCKER = os.getenv('IS_DOCKER', 'false').lower() == 'true'
@@ -90,6 +99,143 @@ FEATURE_ENGINEERING_CONFIG = {
     'rolling_averages': os.getenv('ENABLE_ROLLING_AVERAGES', 'true').lower() == 'true',
     'window_size': int(os.getenv('ROLLING_WINDOW_SIZE', '24')),
 }
+
+class Config:
+    """Configuration class for the Energy AI Optimizer."""
+    
+    def __init__(self, config_file: Optional[str] = None):
+        """
+        Initialize configuration settings.
+        
+        Args:
+            config_file: Path to configuration file (optional)
+        """
+        # Base paths
+        self.BASE_DIR = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.CONFIG_DIR = self.BASE_DIR / "config"
+        self.DATA_DIR = self.BASE_DIR / "data"
+        self.LOGS_DIR = self.BASE_DIR / "logs"
+        
+        # Create directories if they don't exist
+        self.LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        
+        # Log settings
+        self.LOG_LEVEL = os.environ.get("EAIO_LOG_LEVEL", "INFO")
+        self.LOG_FILE = str(self.LOGS_DIR / "eaio.log")
+        
+        # API settings
+        self.HOST = os.environ.get("EAIO_HOST", "0.0.0.0")
+        self.PORT = int(os.environ.get("EAIO_PORT", "8000"))
+        
+        # OpenAI settings
+        self.OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+        self.OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+        self.OPENAI_TEMPERATURE = float(os.environ.get("OPENAI_TEMPERATURE", "0.7"))
+        
+        # Memory settings
+        self.MEMORY_DIR = str(self.BASE_DIR / "memory_storage")
+        
+        # Load configuration from file if provided
+        if config_file:
+            self.load_config(config_file)
+        else:
+            # Try to load default config
+            default_config = self.CONFIG_DIR / "eaio_config.json"
+            if default_config.exists():
+                self.load_config(str(default_config))
+    
+    def load_config(self, config_file: str) -> None:
+        """
+        Load configuration from a file.
+        
+        Args:
+            config_file: Path to configuration file
+        """
+        try:
+            with open(config_file, 'r') as f:
+                config_data = json.load(f)
+            
+            # Update configuration attributes
+            for key, value in config_data.items():
+                setattr(self, key, value)
+            
+            print(f"Loaded configuration from {config_file}")
+        
+        except Exception as e:
+            print(f"Error loading configuration: {str(e)}")
+    
+    def get_llm_config(self) -> Dict[str, Any]:
+        """
+        Get LLM configuration for agents.
+        
+        Returns:
+            Dict[str, Any]: LLM configuration
+        """
+        return {
+            "model": self.OPENAI_MODEL,
+            "api_key": self.OPENAI_API_KEY,
+            "temperature": self.OPENAI_TEMPERATURE
+        }
+    
+    def get_agent_config(self, agent_type: str) -> Dict[str, Any]:
+        """
+        Get configuration for a specific agent type.
+        
+        Args:
+            agent_type: Type of agent (data_analysis, recommendation, etc.)
+            
+        Returns:
+            Dict[str, Any]: Agent configuration
+        """
+        # Default configuration
+        default_config = {
+            "model": self.OPENAI_MODEL,
+            "api_key": self.OPENAI_API_KEY,
+            "temperature": self.OPENAI_TEMPERATURE,
+            "max_tokens": 2000
+        }
+        
+        # Agent-specific configurations
+        agent_configs = {
+            "data_analysis": {
+                "temperature": 0.3,
+                "max_tokens": 4000
+            },
+            "recommendation": {
+                "temperature": 0.7,
+                "max_tokens": 2000
+            },
+            "forecasting": {
+                "temperature": 0.5,
+                "max_tokens": 2000
+            },
+            "commander": {
+                "temperature": 0.7,
+                "max_tokens": 4000
+            },
+            "memory": {
+                "temperature": 0.3,
+                "max_tokens": 2000,
+                "memory_dir": self.MEMORY_DIR
+            },
+            "evaluator": {
+                "temperature": 0.3,
+                "max_tokens": 2000
+            },
+            "adapter": {
+                "temperature": 0.3,
+                "max_tokens": 1000,
+                "config_path": str(self.CONFIG_DIR / "external_apis.json")
+            }
+        }
+        
+        # Get agent-specific config
+        agent_config = agent_configs.get(agent_type.lower(), {})
+        
+        # Merge with default config
+        config = {**default_config, **agent_config}
+        
+        return config
 
 def get_db_connection_params() -> Dict[str, str]:
     """Return database connection parameters as a dictionary."""
